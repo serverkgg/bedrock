@@ -1,0 +1,291 @@
+# yaml-language-server: $schema=./serverk.schema.json
+schemaVersion: serverk.gg/v1
+kind: GamePackage
+
+metadata:
+  id: bedrock
+  name:
+    ar: بيدروك
+    en: Minecraft Bedrock
+  description:
+    ar: سيرفر ماينكرافت بيدروك أصلي — الجوال والكونسول وويندوز كلهم في نفس الماب، ويشتغل على طول بدون إعداد.
+    en: A native Minecraft Bedrock server — phone, console and Windows all in one world, running the moment your order completes.
+  tagline:
+    ar: العب مع أصحابك من أي جهاز — سيرفرك جاهز خلال دقيقة
+    en: Play with your friends from any device — your server, ready in a minute
+  category: sandbox
+  logo: assets/logo.webp
+  banner: assets/banner.webp
+
+resources:
+  minMemoryMb: 1024
+  recommendedMemoryMb: 2048
+  minDiskMb: 5120
+  playersPerMemoryGb: 10
+  maxRecommendedPlayers: 100
+
+container:
+  image: serverkgg/bedrock
+  runtime:
+    platform: linux
+    installBudgetMinutes: 10
+    bootBudgetMinutes: 6
+    shmMb: 64
+    pidsLimit: 512
+  ports:
+    - key: game
+      containerPort: 19132
+      protocol: udp
+      mirror: true
+      join: separate
+      name:
+        ar: بيدروك
+        en: Bedrock
+      hint:
+        ar: في بيدروك حط العنوان في خانة "عنوان السيرفر" والمنفذ في خانة "المنفذ".
+        en: In Bedrock, put the address in the "Server Address" field and the port in the "Port" field.
+      hostRange:
+        default: 19132
+        min: 19132
+        max: 19231
+
+backup:
+  only:
+    - worlds/**
+    - server.properties
+    - allowlist.json
+    - permissions.json
+    - behavior_packs/**
+    - resource_packs/**
+    - development_behavior_packs/**
+    - development_resource_packs/**
+    - world_templates/**
+    - .serverk-packs.json
+    - .serverk-players.json
+  except:
+    - worlds/*/db/LOCK
+    - worlds/*/db/LOG
+    - worlds/*/db/LOG.old
+    - behavior_packs/vanilla*/**
+    - resource_packs/vanilla*/**
+    - behavior_packs/chemistry*/**
+    - resource_packs/chemistry*/**
+    - resource_packs/education*/**
+
+reset:
+  keep:
+    - .serverk-install.json
+    - .serverk-packs.json
+    - .serverk-players.json
+    - bedrock_server
+    - "*.so"
+    - definitions
+    - behavior_packs
+    - resource_packs
+    - minecraftpe
+    - treatments
+    - premium_cache
+    - valid_known_packs.json
+    - release-notes.txt
+    - bedrock_server_how_to.html
+
+secrets:
+  - key: CURSEFORGE_API_KEY
+    description:
+      ar: مفتاح CurseForge API — بدونه ما يشتغل كتالوج الأدونات، بس تقدر ترفع أدوناتك بنفسك.
+      en: CurseForge API key — without it the add-on catalog stays off, but you can still upload your own add-ons.
+    required: false
+
+presence:
+  name: player
+  id: xuid
+  fields:
+    - key: xuid
+      label:
+        ar: رقم الحساب
+        en: Account id
+    - key: permission
+      label:
+        ar: الصلاحية
+        en: Permission
+
+files:
+  protected:
+    - bedrock_server
+    - "*.so"
+    - definitions
+    - minecraftpe
+    - treatments
+    - premium_cache
+    - valid_known_packs.json
+    - .serverk-install.json
+    - .serverk-packs.json
+    - .serverk-players.json
+    - "worlds/*/db/**"
+    - "worlds/*/level.dat"
+  notable:
+    - match: server.properties
+      label:
+        ar: إعدادات
+        en: Settings
+      icon: settings
+      color: "#5ba32b"
+      restart: true
+      note:
+        ar: إعدادات السيرفر الأساسية — الاسم، عدد اللاعبين، الصعوبة، ووضع اللعب. أي تعديل يبي إعادة تشغيل.
+        en: The core server settings — name, player slots, difficulty and game mode. Any change needs a restart.
+    - match: worlds
+      label:
+        ar: المابات
+        en: Worlds
+      icon: map
+      color: "#4a8fd4"
+      note:
+        ar: ماباتك كلها هنا، كل ماب في مجلد لحالها. لا تحذف شيء إلا وأنت متأكد، وخذ نسخة احتياطية قبل أي تعديل.
+        en: All your worlds live here, one folder each. Do not delete anything unless you are sure, and take a backup before touching it.
+    - match: "worlds/**"
+      label:
+        ar: بيانات الماب
+        en: World data
+      icon: map
+      color: "#4a8fd4"
+      note:
+        ar: جزء من بيانات الماب. في بيدروك الأوفرورلد والنذر والإند كلهم في قاعدة بيانات وحدة، وتعديلها والسيرفر شغّال يخرب الماب.
+        en: Part of your world data. On Bedrock the Overworld, Nether and End all live in one database, and editing it while the server runs will corrupt the world.
+    - match: allowlist.json
+      label:
+        ar: القائمة البيضاء
+        en: Allowlist
+      icon: users
+      color: "#e0a458"
+      note:
+        ar: القائمة البيضاء. إذا كانت مفعّلة، بس اللي هنا يقدر يدخل — وهذي طريقتك الوحيدة تمنع لاعب في بيدروك.
+        en: The allowlist. When it is on, only the players here can join — and it is your only way to keep a player out on Bedrock.
+    - match: permissions.json
+      label:
+        ar: الصلاحيات
+        en: Permissions
+      icon: shield
+      color: "#e0a458"
+      restart: true
+      note:
+        ar: صلاحيات اللاعبين. بيدروك يحفظها برقم الحساب (XUID) مو بالاسم، عشان كذا اللاعب لازم يدخل مرة قبل تعطيه أوبريتر.
+        en: Player permissions. Bedrock stores these by account id (XUID), not by name, which is why a player has to join once before you can make them an operator.
+    - match: behavior_packs
+      label:
+        ar: أدونات السلوك
+        en: Behavior packs
+      icon: puzzle
+      color: "#c77dff"
+      restart: true
+      note:
+        ar: أدونات السلوك — اللي تغيّر الوحوش والأشياء وقوانين اللعبة. لازم تفعّلها على الماب وتعيد التشغيل.
+        en: Behavior packs — the ones that change mobs, items and game rules. They have to be activated on your world and need a restart.
+    - match: resource_packs
+      label:
+        ar: أدونات المظهر
+        en: Resource packs
+      icon: puzzle
+      color: "#c77dff"
+      restart: true
+      note:
+        ar: أدونات المظهر — الأشكال والأصوات. كل لاعب بينزّلها أول ما يدخل السيرفر.
+        en: Resource packs — textures and sounds. Every player downloads them when they join.
+    - match: valid_known_packs.json
+      label:
+        ar: فهرس الأدونات
+        en: Pack index
+      icon: box
+      color: "#8d99ae"
+      restart: true
+      note:
+        ar: فهرس السيرفر للأدونات المركّبة. السيرفر يكتبه بنفسه — لا تعدّله.
+        en: The server's own index of installed packs. It writes this itself — do not edit it.
+
+guideTags:
+  - id: start
+    name:
+      ar: ابدأ من هنا
+      en: Start here
+  - id: features
+    name:
+      ar: مميزات
+      en: Features
+
+guides:
+  - id: getting-started
+    title:
+      ar: البدء بسيرفرك
+      en: Getting started
+    summary:
+      ar: من إنشاء السيرفر حتى دخول أول لاعب — من الجوال أو الكونسول أو ويندوز.
+      en: From creating the server to the first player joining — on phone, console or Windows.
+    tags:
+      - start
+    surfaces:
+      - overview
+      - console
+      - setup
+    bodyPath:
+      ar: guides/getting-started/ar.md
+      en: guides/getting-started/en.md
+  - id: players
+    title:
+      ar: اللاعبين — القائمة البيضاء والأوبريتر
+      en: Players — the allowlist and operators
+    summary:
+      ar: كيف تتحكم بمين يدخل سيرفرك ومين يقدر يستخدم أوامر الإدارة، وليش بيدروك يشتغل كذا.
+      en: How to control who joins and who can run admin commands, and why Bedrock works the way it does.
+    tags:
+      - features
+    surfaces:
+      - panel
+      - console
+    bodyPath:
+      ar: guides/players/ar.md
+      en: guides/players/en.md
+  - id: worlds
+    title:
+      ar: المابات — ترفع وتبدّل وتحفظ
+      en: Worlds — upload, switch and keep safe
+    summary:
+      ar: ارفع مابك من جوالك، بدّل بين مابات، وافهم ليش النسخة الاحتياطية أهم شيء في بيدروك.
+      en: Upload a world from your phone, switch between worlds, and understand why backups matter most on Bedrock.
+    tags:
+      - features
+    surfaces:
+      - panel
+      - files
+      - backups
+    bodyPath:
+      ar: guides/worlds/ar.md
+      en: guides/worlds/en.md
+  - id: addons
+    title:
+      ar: الأدونات — سلوك ومظهر
+      en: Add-ons — behavior and resource packs
+    summary:
+      ar: ركّب أدونات من الكتالوج أو ارفع ملف mcaddon بنفسك، وفعّلها على مابك.
+      en: Install add-ons from the catalog or upload your own .mcaddon, then activate them on your world.
+    tags:
+      - features
+    surfaces:
+      - panel
+    bodyPath:
+      ar: guides/addons/ar.md
+      en: guides/addons/en.md
+  - id: preview
+    title:
+      ar: نسخة البريفيو — جرّب الجديد قبل الكل
+      en: The preview build — try what is coming next
+    summary:
+      ar: وش هي نسخة البريفيو، ومتى تستخدمها، وليش الرجوع منها للنسخة العادية صعب.
+      en: What the preview build is, when to use it, and why going back to release is hard.
+    tags:
+      - start
+    surfaces:
+      - panel
+      - overview
+    bodyPath:
+      ar: guides/preview/ar.md
+      en: guides/preview/en.md
