@@ -958,6 +958,20 @@ const addonsTab: Bridge.Tab = {
 	icon: BridgeIcon.Puzzle,
 	sections: [
 		{
+			layout: BridgeLayout.Catalog,
+			id: "catalog",
+			title: {
+				ar: "كتالوج الأدونات",
+				en: "Add-on catalog",
+			},
+			help: {
+				ar: "دوّر على أدون وركّبه بضغطة. نركّبه ونفعّله على مابك، بس اللعبة ما تقراه إلا بعد إعادة التشغيل.",
+				en: "Find an add-on and install it in one click. We install and activate it on your world, but the game only reads it after a restart.",
+			},
+			module: "packCatalog",
+			restartHint: true,
+		},
+		{
 			layout: BridgeLayout.Table,
 			id: "packs",
 			title: {

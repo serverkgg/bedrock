@@ -1,0 +1,258 @@
+import { type Bridge, BridgeKind, BridgeUserError } from "@serverkgg/bridge";
+import {
+	CurseforgeSort,
+	CurseforgeSortOrder,
+	createCurseforgeCatalog,
+	curseforgeDownloadUrl,
+	curseforgeSha1,
+} from "@serverkgg/bridge/catalogs";
+import { PACK_STAGING } from "../shared";
+import { activeWorld } from "../worlds";
+import { installPackSource } from "./packInstall";
+import { PackKind } from "./packManifest";
+import { readWorldPacks, withPackDeactivated, writeWorldPacks } from "./packRegistry";
+import { readPackSidecar, writePackSidecar } from "./packSidecar";
+
+export const BEDROCK_GAME_ID = 78_022;
+
+export const CLASS_ADDONS = 4984;
+
+export const CLASS_TEXTURE_PACKS = 6929;
+
+export const PROVIDER = "curseforge";
+
+const PAGE_SIZE = 20;
+
+const DOWNLOAD_TIMEOUT_MS = 600_000;
+
+const classOf = (category: string | null) => {
+	return category === "texture-packs" ? CLASS_TEXTURE_PACKS : CLASS_ADDONS;
+};
+
+export const decodeRef = (id: string) => {
+	return id.startsWith(`${PROVIDER}:`) ? id.slice(PROVIDER.length + 1) : null;
+};
+
+export const encodeRef = (project: number | string) => `${PROVIDER}:${project}`;
+
+export const packCatalog: Bridge.Catalog = {
+	kind: BridgeKind.Catalog,
+	pageSize: PAGE_SIZE,
+
+	async search(context, query) {
+		const catalog = createCurseforgeCatalog(context, {
+			gameId: BEDROCK_GAME_ID,
+		});
+
+		const categories: Bridge.CatalogFacet[] = [
+			{
+				value: "addons",
+				label: {
+					ar: "أدونات",
+					en: "Add-ons",
+				},
+			},
+			{
+				value: "texture-packs",
+				label: {
+					ar: "أدونات المظهر",
+					en: "Texture packs",
+				},
+			},
+		];
+
+		if (!catalog.ready()) {
+			return {
+				hits: [],
+				total: 0,
+				categories,
+				sorts: [],
+				providers: [
+					{
+						id: PROVIDER,
+						label: {
+							ar: "كيرس فورج",
+							en: "CurseForge",
+						},
+						ready: false,
+						note: {
+							ar: "ما فيه مفتاح CurseForge مضاف للمنصة، فالكتالوج مقفل. تقدر ترفع أدوناتك بنفسك من تحت.",
+							en: "no CurseForge key is set on the platform, so the catalog is off — you can still upload your own add-ons below",
+						},
+					},
+				],
+			};
+		}
+
+		const page = await catalog.search({
+			query: query.query,
+			classId: classOf(query.category),
+			index: query.page * PAGE_SIZE,
+			pageSize: PAGE_SIZE,
+			sort: CurseforgeSort.Popularity,
+			sortOrder: CurseforgeSortOrder.Desc,
+		});
+
+		return {
+			hits: page.data.map((mod) => ({
+				id: encodeRef(mod.id),
+				provider: PROVIDER,
+				title: mod.name,
+				description: mod.summary,
+				icon: mod.logo?.thumbnailUrl ?? null,
+				downloads: mod.downloadCount,
+				author: mod.authors.at(0)?.name ?? null,
+				categories: mod.categories.map((category) => category.name),
+				updatedAt: mod.dateModified,
+				pageUrl: mod.links?.websiteUrl ?? null,
+			})),
+			total: page.pagination.totalCount,
+			categories,
+			sorts: [],
+			providers: [
+				{
+					id: PROVIDER,
+					label: {
+						ar: "كيرس فورج",
+						en: "CurseForge",
+					},
+					ready: true,
+				},
+			],
+		};
+	},
+
+	async installed(context) {
+		const sidecar = await readPackSidecar(context);
+		const world = await activeWorld(context);
+		const active = new Map<PackKind, string[]>();
+
+		for (const kind of [
+			PackKind.Behavior,
+			PackKind.Resource,
+		]) {
+			active.set(
+				kind,
+				(await readWorldPacks(context, world, kind)).map((entry) => entry.pack_id),
+			);
+		}
+
+		const entries = [];
+
+		for (const pack of Object.values(sidecar.packs)) {
+			entries.push({
+				id: pack.project === null ? pack.uuid : encodeRef(pack.project),
+				provider: pack.provider,
+				path: pack.folder,
+				title: pack.title,
+				version: pack.versionText,
+				sizeBytes: (await context.files.exists(pack.folder)) ? await context.files.size(pack.folder) : 0,
+				enabled: (active.get(pack.kind) ?? []).includes(pack.uuid),
+				gameVersion: null,
+				stale: false,
+				pageUrl: pack.pageUrl,
+				icon: pack.icon,
+			});
+		}
+
+		return entries;
+	},
+
+	async install(context, id) {
+		const project = decodeRef(id);
+
+		if (project === null) {
+			throw new BridgeUserError({
+				ar: "ما عرفنا هذا الأدون من وين ننزّله.",
+				en: "we could not tell where to download this add-on from",
+			});
+		}
+
+		const catalog = createCurseforgeCatalog(context, {
+			gameId: BEDROCK_GAME_ID,
+		});
+		const mod = await catalog.mod(project);
+		const files = await catalog.modFiles(project, {
+			pageSize: 1,
+		});
+		const file = files.data.at(0);
+
+		if (file === undefined) {
+			throw new BridgeUserError({
+				ar: `"${mod.name}" ما عنده أي ملف ننزّله.`,
+				en: `"${mod.name}" has no downloadable file`,
+			});
+		}
+
+		const url = curseforgeDownloadUrl(file);
+
+		if (url === null) {
+			throw new BridgeUserError({
+				ar: `صاحب "${mod.name}" ما يسمح بالتحميل إلا من كيرس فورج. افتح صفحته، نزّل الملف، وارفعه من زر "رفع أدون" تحت.`,
+				en: `the author of "${mod.name}" allows downloads only from CurseForge — open its page, download the file, and upload it with the button below`,
+			});
+		}
+
+		const digest = curseforgeSha1(file);
+		const archive = `${PACK_STAGING}/${file.id}-${file.fileName}`;
+
+		await context.files.remove(PACK_STAGING);
+		await context.files.ensure(PACK_STAGING);
+		await context.files.download(archive, url, {
+			timeoutMs: DOWNLOAD_TIMEOUT_MS,
+			...(digest === null
+				? {}
+				: {
+						digest: `sha1:${digest}`,
+					}),
+			sizeBytes: file.fileLength,
+		});
+
+		const installed = await installPackSource(context, {
+			archive,
+			bundle: mod.name,
+			provider: PROVIDER,
+			project: String(mod.id),
+			file: String(file.id),
+			icon: mod.logo?.thumbnailUrl ?? null,
+			pageUrl: mod.links?.websiteUrl ?? null,
+		});
+
+		const first = installed.at(0);
+
+		return {
+			id,
+			provider: PROVIDER,
+			path: first?.folder ?? "",
+			title: first?.title ?? mod.name,
+			version: first?.versionText ?? null,
+			sizeBytes: file.fileLength,
+			enabled: true,
+			gameVersion: null,
+			stale: false,
+			pageUrl: mod.links?.websiteUrl ?? null,
+			icon: mod.logo?.thumbnailUrl ?? null,
+		};
+	},
+
+	async remove(context, id) {
+		const sidecar = await readPackSidecar(context);
+		const project = decodeRef(id);
+		const world = await activeWorld(context);
+
+		for (const pack of Object.values(sidecar.packs)) {
+			if (pack.uuid !== id && (project === null || pack.project !== project)) {
+				continue;
+			}
+
+			const entries = await readWorldPacks(context, world, pack.kind);
+
+			await writeWorldPacks(context, world, pack.kind, withPackDeactivated(entries, pack.uuid));
+			await context.files.remove(pack.folder);
+
+			delete sidecar.packs[pack.uuid];
+		}
+
+		await writePackSidecar(context, sidecar);
+	},
+};

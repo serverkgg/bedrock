@@ -16,6 +16,11 @@ export interface PackRecord {
 	bundle: string | null;
 	order: number;
 	dependencies: string[];
+	provider: string | null;
+	project: string | null;
+	file: string | null;
+	icon: string | null;
+	pageUrl: string | null;
 	installedAt: string;
 }
 
@@ -72,6 +77,11 @@ export const parsePackSidecar = (text: string): PackSidecar => {
 					dependencies: Array.isArray(record.dependencies)
 						? record.dependencies.filter((entry): entry is string => typeof entry === "string")
 						: [],
+					provider: typeof record.provider === "string" ? record.provider : null,
+					project: typeof record.project === "string" ? record.project : null,
+					file: typeof record.file === "string" ? record.file : null,
+					icon: typeof record.icon === "string" ? record.icon : null,
+					pageUrl: typeof record.pageUrl === "string" ? record.pageUrl : null,
 					installedAt: typeof record.installedAt === "string" ? record.installedAt : "",
 				};
 			}

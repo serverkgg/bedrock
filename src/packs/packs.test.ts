@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { packDirectory, packFolderName } from "./packInstall";
 import { PackKind } from "./packManifest";
 import { parsePackSidecar } from "./packSidecar";
-import { packDirectory, packFolderName } from "./packs";
 
 describe("placing an installed pack on disk", () => {
 	test("puts behavior and resource packs where bedrock looks for them", () => {

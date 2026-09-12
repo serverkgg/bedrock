@@ -49,6 +49,19 @@ Booted in `debian:12-slim` on 2026-09-12 with the commands driven over stdin. Th
   Nothing here parses those replies — both collections read the files — but anyone who adds a parser should
   know before they write a line-scraper.
 
+## Verified against the live CurseForge API
+
+Checked on 2026-09-12 with the platform's own `CURSEFORGE_API_KEY` (stored in the `secrets` table,
+not in any `.env`), so none of this is inferred:
+
+- `gameId 78022` is Minecraft Bedrock. Java is `432`; using it here would fill the tab with mods that
+  cannot run on this server, which is the one failure worth guarding against.
+- Classes are `4984 addons`, `6913 maps`, `6929 texture-packs`, `6940 scripts`, `6925 skins`.
+- The catalog's own `search` returns 10,000 addons and 5,671 texture packs through the class facet.
+- Files are real `.mcaddon` archives carrying SHA-1 hashes, and `curseforgeDownloadUrl` resolves for
+  every project sampled — so the digest-pinned download works and the "searches but cannot install"
+  risk this was deferred over does not exist for Bedrock.
+
 ## Still to verify against a real BDS
 
 - `PORT_BIND_FAILED` and `WORLD_CORRUPT` in `src/events/events.ts` are informed guesses. Reproduce them
@@ -70,13 +83,6 @@ Booted in `debian:12-slim` on 2026-09-12 with the commands driven over stdin. Th
 
 ## Deferred, on purpose
 
-- **A CurseForge add-on catalog.** The upload route is complete and has no external dependency; the catalog
-  is gated on CurseForge's numeric `gameId` for Minecraft Bedrock and the `classId`s for Addons / Worlds /
-  Resource Packs, which are not resolvable from public docs. Resolve them with `GET /v1/games` then
-  `GET /v1/categories?gameId=<id>&classesOnly=true` and hard-code them as named constants. **A wrong gameId
-  yields a catalog full of Java mods, which is worse than no catalog** — check the class of the first search
-  hit before shipping. The SDK already carries `createCurseforgeCatalog`, and `CURSEFORGE_API_KEY` is already
-  declared in the manifest as an optional secret.
 - **Player avatars.** There is no public gamertag→skin or XUID→gamerpic endpoint for Bedrock; the Xbox ones
   need an XSTS token, which is a Microsoft account and a refresh flow a game driver has no business holding.
   The Players page already degrades to a platform glyph and then the name's initial. The eventual shape is a
