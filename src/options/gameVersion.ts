@@ -1,0 +1,63 @@
+import { type Bridge, BridgeKind } from "@serverkgg/bridge";
+import { CHANNEL_VARIABLE, channelOf, readInstallStamp, resolveRelease } from "../install";
+
+const TTL_SECONDS = 1800;
+
+export const gameVersion: Bridge.Options = {
+	kind: BridgeKind.Options,
+	dependsOn: [
+		CHANNEL_VARIABLE,
+	],
+	ttlSeconds: TTL_SECONDS,
+
+	async list(context) {
+		const channel = channelOf(context);
+		const options: Bridge.Option[] = [
+			{
+				value: "",
+				label: {
+					ar: "أحدث نسخة",
+					en: "Latest",
+				},
+				help: {
+					ar: "نحدّث السيرفر لأحدث نسخة أول ما تنزل.",
+					en: "we move the server to the newest build as soon as it lands",
+				},
+			},
+		];
+
+		const seen = new Set<string>();
+
+		try {
+			const release = await resolveRelease(context, channel, null);
+
+			seen.add(release.version);
+			options.push({
+				value: release.version,
+				label: {
+					ar: release.label,
+					en: release.label,
+				},
+				latest: true,
+			});
+		} catch (error) {
+			context.log.warn("could not reach the download service while listing builds", {
+				reason: error instanceof Error ? error.message : String(error),
+			});
+		}
+
+		const stamp = await readInstallStamp(context);
+
+		if (stamp !== null && stamp.channel === channel && !seen.has(stamp.version)) {
+			options.push({
+				value: stamp.version,
+				label: {
+					ar: stamp.label,
+					en: stamp.label,
+				},
+			});
+		}
+
+		return options;
+	},
+};

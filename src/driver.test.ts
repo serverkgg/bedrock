@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { BridgeSection, BridgeSectionAction } from "@serverkgg/bridge";
+import { BridgeLayout, BridgeSetupStepKind } from "@serverkgg/bridge";
 import { BRIDGE_EVENT_NAMES } from "@serverkgg/bridge/protocol";
 import { driver } from "./driver";
 
@@ -10,6 +11,29 @@ const sections = (driver.panel?.tabs ?? []).flatMap((tab) => tab.sections);
 const actionsOf = (section: BridgeSection): BridgeSectionAction[] => {
 	return "actions" in section ? (section.actions ?? []) : [];
 };
+
+const tables = sections.flatMap((section) => {
+	return section.layout === BridgeLayout.Table
+		? [
+				section,
+			]
+		: [];
+});
+
+const columnsOf = (module: string) => {
+	return tables
+		.filter((table) => table.module === module)
+		.flatMap((table) => table.columns.map((column) => column.key));
+};
+
+const formSection = (tab: string, section: string) => {
+	return (driver.panel?.tabs ?? [])
+		.filter((candidate) => candidate.id === tab)
+		.flatMap((candidate) => candidate.sections)
+		.find((candidate) => candidate.id === section && candidate.layout === BridgeLayout.Form);
+};
+
+const commands = driver.terminal?.commands ?? [];
 
 const RESERVED_MODULE_IDS = [
 	"announce",
@@ -101,5 +125,79 @@ describe("refusing to promise what bedrock cannot do", () => {
 
 	test("declares no pending module, because nothing about bedrock waits on a companion upload", () => {
 		expect(driver.pending).toBeUndefined();
+	});
+});
+
+describe("wiring the console the panel offers", () => {
+	test("binds every command argument to a table column that is really rendered", () => {
+		for (const command of commands) {
+			for (const arg of command.args ?? []) {
+				if (arg.module === undefined || arg.column === undefined) {
+					continue;
+				}
+
+				expect(Object.keys(modules)).toContain(arg.module);
+				expect(columnsOf(arg.module)).toContain(arg.column);
+			}
+		}
+	});
+
+	test("names every command once", () => {
+		const names = commands.map((command) => command.name);
+
+		expect(new Set(names).size).toBe(names.length);
+	});
+
+	test("writes every summary in both languages, because the console is customer-facing", () => {
+		for (const command of commands) {
+			expect(command.summary.ar.length).toBeGreaterThan(0);
+			expect(command.summary.en.length).toBeGreaterThan(0);
+		}
+	});
+
+	test("flags the commands that stop the server or destroy something", () => {
+		for (const name of [
+			"stop",
+			"kick",
+			"kill",
+			"fill",
+			"clear",
+		]) {
+			expect(commands.find((command) => command.name === name)?.danger).toBe(true);
+		}
+	});
+
+	test("offers no say command, because bedrock has none — tellraw is the one that works", () => {
+		expect(commands.map((command) => command.name)).not.toContain("say");
+	});
+});
+
+describe("wiring the first-run setup", () => {
+	test("points every form step at a form section this panel really declares", () => {
+		for (const step of driver.setup?.steps ?? []) {
+			if (step.kind !== BridgeSetupStepKind.Form) {
+				continue;
+			}
+
+			const section = formSection(step.tab, step.section);
+
+			expect(section).toBeDefined();
+
+			const keys = (section?.layout === BridgeLayout.Form ? section.fields : []).map((entry) => entry.key);
+
+			for (const field of step.fields ?? []) {
+				expect(keys).toContain(field);
+			}
+		}
+	});
+
+	test("leaves every step optional, because a fresh bedrock server already runs", () => {
+		for (const step of driver.setup?.steps ?? []) {
+			expect(step.required).toBe(false);
+		}
+	});
+
+	test("declares no driver step, so the flow needs no submit handler", () => {
+		expect(driver.setup?.submit).toBeUndefined();
 	});
 });
