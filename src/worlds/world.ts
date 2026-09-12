@@ -14,9 +14,9 @@ const FIND_TIMEOUT_MS = 60_000;
 
 const NAME_LIMIT = 64;
 
-const UNSAFE_CHARACTERS = /[^A-Za-z0-9._-]+/g;
+const UNSAFE_CHARACTERS = /[^\p{L}\p{N}._-]+/gu;
 
-const EDGE_CHARACTERS = /^[-._]+|[-._]+$/g;
+const EDGE_CHARACTERS = /^[-._]+|[-._]+$/gu;
 
 export const DEFAULT_LEVEL = "world";
 

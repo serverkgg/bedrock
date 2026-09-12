@@ -16,9 +16,9 @@ import { PackKind } from "./packManifest";
 import { movePackEntry, readWorldPacks, withPackActivated, withPackDeactivated, writeWorldPacks } from "./packRegistry";
 import { type PackRecord, readPackSidecar, writePackSidecar } from "./packSidecar";
 
-const UNSAFE_CHARACTERS = /[^A-Za-z0-9._-]+/g;
+const UNSAFE_CHARACTERS = /[^\p{L}\p{N}._-]+/gu;
 
-const EDGE_CHARACTERS = /^[-._]+|[-._]+$/g;
+const EDGE_CHARACTERS = /^[-._]+|[-._]+$/gu;
 
 const TITLE_LIMIT = 40;
 
