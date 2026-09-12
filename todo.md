@@ -2,15 +2,26 @@
 
 What is deliberately left, and what still has to be proven against a real server.
 
-## Must be measured before this is sold
+## Measured on a live server
 
-`tome/process/game.md` is explicit that these are measurements, not guesses copied from a wiki. Every value
-in `serverk.yml` below is currently a placeholder that reads plausible and has not been measured.
+Sampled on 2026-09-12 from a provisioned dev server, idle with a fresh world loaded and no players:
 
-- `resources.minMemoryMb` (1024) — this is the field that decides which plans Bedrock can be ordered on, so
-  it is a commercial number as much as a technical one. BDS is a native server with no heap to size, so it
-  should land well under minecraft's 1024; measure with `docker stats` under load.
-- `resources.recommendedMemoryMb` (2048), `playersPerMemoryGb` (10), `maxRecommendedPlayers` (100).
+- **234 MiB resident, flat across a minute, 2.3 % CPU.** The Java servers on the same machine were sitting
+  at 1.81 and 1.89 GiB against a 2 GiB cap — Bedrock uses roughly an eighth of what the JVM does.
+- **365 MB on disk** installed, of which 123 MB is the shipped vanilla packs; a fresh world is 1 MB.
+
+`minMemoryMb` is therefore **512** and `recommendedMemoryMb` **1024**, down from 1024/2048. The old numbers
+were invented and would have blocked Bedrock from the smallest plans for no reason, which is a pricing
+mistake rather than a technical one.
+
+## Still to measure
+
+- **Memory under real load.** 234 MiB is the idle floor with one fresh world and nobody connected. Chunk
+  loading and players move it, and that has not been measured, so `playersPerMemoryGb` (10) and
+  `maxRecommendedPlayers` (100) are still estimates.
+- `resources.minDiskMb` (5120) — deliberately left alone. The install is a measured 365 MB and the archive
+  adds 104 MB transiently, but world growth over months is the term that actually decides this and it has
+  not been observed. Lowering it on the strength of a 1 MB fresh world would swap one guess for another.
 - `resources.minDiskMb` (5120) — a measured 365 MB install plus the 104 MB archive held transiently during
   the unpack, plus world growth. The only unmeasured part left is how fast a real world grows.
 - `container.runtime.installBudgetMinutes` (10) — a measured cold install. This is the number the

@@ -18,8 +18,8 @@ metadata:
   banner: assets/banner.webp
 
 resources:
-  minMemoryMb: 1024
-  recommendedMemoryMb: 2048
+  minMemoryMb: 512
+  recommendedMemoryMb: 1024
   minDiskMb: 5120
   playersPerMemoryGb: 10
   maxRecommendedPlayers: 100
