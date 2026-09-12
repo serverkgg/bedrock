@@ -18,12 +18,6 @@ const UNZIP_TIMEOUT_MS = 900_000;
 
 const INVENTORY_TIMEOUT_MS = 120_000;
 
-const SYMBOL_SUFFIXES = [
-	".debug",
-	".pdb",
-	".sym",
-];
-
 export const PRESERVE_ON_UPDATE = [
 	WORLDS_DIRECTORY,
 	CONFIG_FILE,
@@ -78,10 +72,6 @@ export const vanillaPacksOf = (entries: string[]) => {
 	].sort();
 };
 
-export const isSymbolFile = (name: string) => {
-	return SYMBOL_SUFFIXES.some((suffix) => name.endsWith(suffix));
-};
-
 export interface UnpackedArchive {
 	files: string[];
 	packs: string[];
@@ -107,23 +97,6 @@ const inventory = async (context: Bridge.Context, archive: string) => {
 		.split("\n")
 		.map((line) => line.trim())
 		.filter((line) => line.length > 0);
-};
-
-const pruneSymbols = async (context: Bridge.Context, entries: string[]) => {
-	let reclaimed = 0;
-
-	for (const entry of entries) {
-		if (!isSymbolFile(entry) || entry.includes("/")) {
-			continue;
-		}
-
-		if (await context.files.exists(entry)) {
-			reclaimed += await context.files.size(entry);
-			await context.files.remove(entry);
-		}
-	}
-
-	return reclaimed;
 };
 
 export const installGame = async (
@@ -179,14 +152,6 @@ export const installGame = async (
 
 	if (unpacked.code !== 0) {
 		throw new Error(`the bedrock archive could not be unpacked — ${execDetail(unpacked)}`);
-	}
-
-	const reclaimed = await pruneSymbols(context, entries);
-
-	if (reclaimed > 0) {
-		context.log("dropped the debug symbols the archive ships", {
-			bytes: reclaimed,
-		});
 	}
 
 	const marked = await context.exec([

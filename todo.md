@@ -11,9 +11,11 @@ in `serverk.yml` below is currently a placeholder that reads plausible and has n
   it is a commercial number as much as a technical one. BDS is a native server with no heap to size, so it
   should land well under minecraft's 1024; measure with `docker stats` under load.
 - `resources.recommendedMemoryMb` (2048), `playersPerMemoryGb` (10), `maxRecommendedPlayers` (100).
-- `resources.minDiskMb` (5120) — the installed size after the debug-symbol prune, plus world headroom.
+- `resources.minDiskMb` (5120) — a measured 365 MB install plus the 104 MB archive held transiently during
+  the unpack, plus world growth. The only unmeasured part left is how fast a real world grows.
 - `container.runtime.installBudgetMinutes` (10) — a measured cold install. This is the number the
-  provisioning screen shows the customer, so an optimistic value fails real provisions.
+  provisioning screen shows the customer, so an optimistic value fails real provisions. The download alone is
+  104 MB and took minutes on this machine, so 10 may be tight on a slow link.
 - `container.runtime.bootBudgetMinutes` (6) — process start to the ready line, worst case: first boot
   generates a world.
 - `container.runtime.shmMb` (64) and `pidsLimit` (512) — defaults; raise only if a failure demands it.
@@ -21,19 +23,45 @@ in `serverk.yml` below is currently a placeholder that reads plausible and has n
   the ceiling a package may declare alone**; past that, `DEFAULT_STOP_TIMEOUT_SECONDS` in
   `platform/src/services/server/stopControl.ts` has to move in the same change.
 
+## Verified against a real BDS 1.26.45.1
+
+Booted in `debian:12-slim` on 2026-09-12 with the commands driven over stdin. These are no longer assumptions:
+
+- **`allow-list` ships as `true`.** The server prints an ALLOW LIST WARNING block on first boot saying the list
+  is enabled and empty. That is a server nobody — including its owner — can join, which is exactly why
+  `seedConfig` forces it to `false` on a first install.
+- **`level-name` ships as `Bedrock level`**, with a space, confirming the first-install override to `world`.
+- Ready line is `Server started.`; stop prints `Stopping server...` then `Quit correctly`.
+- `Saving...` → `Data saved. Files are now ready to be copied.` → `Changes to the world are resumed.` — all
+  three match what `bedrockSave.ts` waits for, including "world" rather than "level" in the resume line.
+- `save query` prints its file list on the line **after** the ready line, comma separated as
+  `Bedrock level/db/CURRENT:16, Bedrock level/db/000003.log:156, …` — the researched format exactly.
+- `list` prints `There are 0/10 players online:` — the `LIST_HEADER` shape.
+- The archive holds **10,920 entries, no debug symbols at all**, and unpacks to **365 MB**. The symbol prune
+  was removed because it found nothing; `minDiskMb: 5120` now has a measured 365 MB install under it.
+- The archive **ships `server.properties`, `allowlist.json` and `permissions.json`**, so the `-x` exclusions
+  in `installGame` are load-bearing rather than defensive: without them every upgrade would reset the lot.
+- Top-level names are `allowlist.json bedrock_server bedrock_server_how_to.html behavior_packs config data
+  definitions libMinecraft.Server.Lib.a packetlimitconfig.json permissions.json profanity_filter.wlist
+  release-notes.txt resource_packs server.properties`. `reset.keep` and `files.protected` were rewritten from
+  this list rather than from guesses.
+- `allowlist list`, `ops` and `permissions` answer with **JSON wrapped in `###* … *###`**, not plain text.
+  Nothing here parses those replies — both collections read the files — but anyone who adds a parser should
+  know before they write a line-scraper.
+
 ## Still to verify against a real BDS
 
 - `PORT_BIND_FAILED` and `WORLD_CORRUPT` in `src/events/events.ts` are informed guesses. Reproduce them
   (hold the port; corrupt a `db/`) and fix the patterns — or **delete them rather than ship regexes that
   never fire**.
-- The stop reply. `lifecycle.stop` expects `/Quit correctly|Stopping server/i`.
 - `kick <xuid>` — the shipped manual says kick takes a name or an xuid; `players.kick` relies on it.
 - Whether `op <gamertag>` needs quoting for a gamertag containing a space.
 - Whether `permission reload` picks up a `visitor` downgrade without a rejoin.
 - What `allowlist add` does when `online-mode=false`. If it refuses to operate at all, the whole allowlist
   tab is a no-op in that configuration and the `online-mode` warning has to say so.
 - Whether BDS starts cleanly when `server-portv6` is bound but never published. `seedConfig` forces it to
-  the game port + 1 inside the container's own netns.
+  the game port + 1 inside the container's own netns. (A default boot binds both 19132 and 19133 happily;
+  what is untested is the two being different numbers.)
 - Whether a pack version mismatch between `world_*_packs.json` and a manifest fails silently, and whether
   a `format_version: 3` semver string is accepted there (we always write the numeric triple).
 - Whether the first entry of `world_resource_packs.json` is the highest priority. New packs are appended and

@@ -79,12 +79,17 @@ reset:
     - .serverk-players.json
     - bedrock_server
     - "*.so"
-    - definitions
+    - libMinecraft.Server.Lib.a
     - behavior_packs
     - resource_packs
+    - config
+    - data
+    - definitions
     - minecraftpe
     - treatments
     - premium_cache
+    - packetlimitconfig.json
+    - profanity_filter.wlist
     - valid_known_packs.json
     - release-notes.txt
     - bedrock_server_how_to.html
@@ -113,10 +118,15 @@ files:
   protected:
     - bedrock_server
     - "*.so"
+    - libMinecraft.Server.Lib.a
+    - config
+    - data
     - definitions
     - minecraftpe
     - treatments
     - premium_cache
+    - packetlimitconfig.json
+    - profanity_filter.wlist
     - valid_known_packs.json
     - .serverk-install.json
     - .serverk-packs.json

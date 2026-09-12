@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { isSymbolFile, PRESERVE_ON_UPDATE, topLevelOf, vanillaPacksOf } from "./installGame";
+import { PRESERVE_ON_UPDATE, topLevelOf, vanillaPacksOf } from "./installGame";
 
 const ENTRIES = [
 	"bedrock_server",
-	"bedrock_server_symbols.debug",
+	"libMinecraft.Server.Lib.a",
 	"server.properties",
 	"behavior_packs/vanilla/manifest.json",
 	"behavior_packs/vanilla_1.21.40/manifest.json",
@@ -16,9 +16,9 @@ describe("reading the archive inventory before unpacking it", () => {
 	test("collects the top-level names, which is what a later upgrade deletes", () => {
 		expect(topLevelOf(ENTRIES)).toEqual([
 			"bedrock_server",
-			"bedrock_server_symbols.debug",
 			"behavior_packs",
 			"definitions",
+			"libMinecraft.Server.Lib.a",
 			"resource_packs",
 			"server.properties",
 			"worlds",
@@ -31,11 +31,6 @@ describe("reading the archive inventory before unpacking it", () => {
 			"behavior_packs/vanilla_1.21.40",
 			"resource_packs/vanilla",
 		]);
-	});
-
-	test("recognises the debug symbols that make up most of the download", () => {
-		expect(isSymbolFile("bedrock_server_symbols.debug")).toBe(true);
-		expect(isSymbolFile("bedrock_server")).toBe(false);
 	});
 });
 
