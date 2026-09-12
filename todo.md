@@ -63,9 +63,11 @@ in `serverk.yml` below is currently a placeholder that reads plausible and has n
 
 ## Notes for whoever runs the first real install
 
-- Mojang's CDN closed an HTTP/2 stream mid-download during testing (`curl: (92) INTERNAL_ERROR`) and the same
-  fetch over HTTP/1.1 succeeded. If `context.files.download` proves flaky against
-  `www.minecraft.net/bedrockdedicatedserver/...`, that is the first thing to suspect.
+- **Mojang's CDN refuses curl's User-Agent.** Verified against the real URL from inside `debian:12-slim`:
+  curl's default UA and an explicit `curl/7.88.1` both get an empty reply, while `Mozilla/5.0` and
+  `serverk-bridge/1.0 (serverk.gg)` both answer `206`. The bridge sends the latter
+  (`runtime/bridgeFiles.ts:306` reuses `USER_AGENT` from `bridgeNet.ts:10`), so `context.files.download`
+  works — but anyone reaching for `context.exec(["curl", ...])` here will be confused for an hour.
 - `install.run` logs the archive's entry count and top-level names on every install (`unzip -Z1` before
   unpacking). Read that line on the first container run — it is how we learn what the archive actually
   carries, and it is what the stale-file sweep on the next upgrade deletes.

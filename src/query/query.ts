@@ -22,7 +22,10 @@ export const query: Bridge.Query = {
 		try {
 			const pong = await context.probe.raknetPing(context.port("game"));
 
-			await sampleRoster(context);
+			if (roster.all().length !== pong.players.online) {
+				await sampleRoster(context);
+			}
+
 			sync.sync(context, roster.all());
 
 			return {
