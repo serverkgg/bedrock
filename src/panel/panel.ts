@@ -9,7 +9,7 @@ import {
 	BridgeUploadMode,
 } from "@serverkgg/bridge";
 import { CHANNEL_VARIABLE, VERSION_VARIABLE } from "../install";
-import { PROPERTY_KEYS, WORLD_EXTENSIONS, WORLD_STAGING } from "../shared";
+import { PACK_EXTENSIONS, PACK_STAGING, PROPERTY_KEYS, WORLD_EXTENSIONS, WORLD_STAGING } from "../shared";
 
 const GAME_MODES: Bridge.Option[] = [
 	{
@@ -949,6 +949,123 @@ const worldsTab: Bridge.Tab = {
 	],
 };
 
+const addonsTab: Bridge.Tab = {
+	id: "addons",
+	title: {
+		ar: "الأدونات",
+		en: "Add-ons",
+	},
+	icon: BridgeIcon.Puzzle,
+	sections: [
+		{
+			layout: BridgeLayout.Table,
+			id: "packs",
+			title: {
+				ar: "الأدونات المركّبة",
+				en: "Installed add-ons",
+			},
+			help: {
+				ar: "نركّبها ونفعّلها على مابك على طول، بس اللعبة ما تقراها إلا بعد إعادة التشغيل. الترتيب يقرر مين يطلع فوق لو أدونين غيّروا نفس الشي.",
+				en: "We install and activate them on your world right away, but the game only reads them after a restart. Order decides which one wins when two change the same thing.",
+			},
+			module: "packs",
+			restartHint: true,
+			columns: [
+				{
+					key: "name",
+					label: {
+						ar: "الأدون",
+						en: "Add-on",
+					},
+				},
+				{
+					key: "kind",
+					label: {
+						ar: "النوع",
+						en: "Kind",
+					},
+				},
+				{
+					key: "version",
+					label: {
+						ar: "النسخة",
+						en: "Version",
+					},
+				},
+				{
+					key: "enabled",
+					label: {
+						ar: "مفعّل",
+						en: "Enabled",
+					},
+				},
+				{
+					key: "order",
+					label: {
+						ar: "الترتيب",
+						en: "Order",
+					},
+				},
+			],
+			upload: {
+				label: {
+					ar: "ارفع أدون",
+					en: "Upload an add-on",
+				},
+				extensions: PACK_EXTENSIONS,
+				staging: PACK_STAGING,
+				mode: BridgeUploadMode.File,
+			},
+			empty: {
+				ar: "ما فيه أدونات مركّبة. ارفع ملف mcaddon أو mcpack وبنركّبه لك.",
+				en: "No add-ons installed. Upload a .mcaddon or .mcpack and we install it for you.",
+			},
+			actions: [
+				{
+					id: "enable",
+					label: {
+						ar: "فعّله",
+						en: "Enable",
+					},
+				},
+				{
+					id: "disable",
+					label: {
+						ar: "عطّله",
+						en: "Disable",
+					},
+				},
+				{
+					id: "moveUp",
+					label: {
+						ar: "حركه فوق",
+						en: "Move up",
+					},
+				},
+				{
+					id: "moveDown",
+					label: {
+						ar: "حركه تحت",
+						en: "Move down",
+					},
+				},
+				{
+					id: "remove",
+					label: {
+						ar: "احذفه",
+						en: "Remove",
+					},
+					confirm: BridgeConfirm.Strong,
+					confirmText: {
+						ar: "لو شلت أدون سلوك وماب شغّالة عليه، كل شي جابه الأدون بيختفي من الماب — الوحوش والأشياء اللي أضافها. خذ نسخة احتياطية قبل.",
+						en: "If you remove a behavior pack a world was using, everything it added disappears from that world — the mobs and items it brought. Take a backup first.",
+					},
+				},
+			],
+		},
+	],
+};
+
 export const panel: Bridge.Panel = {
 	tabs: [
 		versionTab,
@@ -956,5 +1073,6 @@ export const panel: Bridge.Panel = {
 		playersTab,
 		liveTab,
 		worldsTab,
+		addonsTab,
 	],
 };

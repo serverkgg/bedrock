@@ -1,0 +1,149 @@
+import { describe, expect, test } from "bun:test";
+import { PackKind, packKindOf, parsePackManifest, parsePackVersion } from "./packManifest";
+
+const manifest = (
+	modules: string[],
+	version: unknown = [
+		1,
+		0,
+		0,
+	],
+) =>
+	JSON.stringify({
+		header: {
+			uuid: "8f3a1b2c-0000-0000-0000-000000000001",
+			name: "pack.name",
+			version,
+		},
+		modules: modules.map((type) => ({
+			type,
+		})),
+	});
+
+describe("telling a behavior pack from a resource pack", () => {
+	test("reads a plain behavior pack", () => {
+		expect(
+			parsePackManifest(
+				manifest([
+					"data",
+				]),
+			)?.kind,
+		).toBe(PackKind.Behavior);
+	});
+
+	test("reads a scripting pack, which carries no data module at all", () => {
+		expect(
+			parsePackManifest(
+				manifest([
+					"script",
+				]),
+			)?.kind,
+		).toBe(PackKind.Behavior);
+	});
+
+	test("reads a behavior pack that also ships a client_data module", () => {
+		expect(
+			packKindOf([
+				"data",
+				"client_data",
+			]),
+		).toBe(PackKind.Behavior);
+	});
+
+	test("reads a resource pack", () => {
+		expect(
+			parsePackManifest(
+				manifest([
+					"resources",
+				]),
+			)?.kind,
+		).toBe(PackKind.Resource);
+	});
+
+	test("calls a world template what it is, so the packs tab can send it to the worlds tab", () => {
+		expect(
+			parsePackManifest(
+				manifest([
+					"world_template",
+				]),
+			)?.kind,
+		).toBe(PackKind.WorldTemplate);
+	});
+
+	test("answers null for a manifest with no module we can place", () => {
+		expect(parsePackManifest(manifest([]))).toBeNull();
+	});
+});
+
+describe("reading a pack version", () => {
+	test("reads the array form every shipping pack uses", () => {
+		expect(
+			parsePackVersion([
+				1,
+				2,
+				3,
+			]),
+		).toEqual({
+			parts: [
+				1,
+				2,
+				3,
+			],
+			text: "1.2.3",
+		});
+	});
+
+	test("reads the semver string newer manifests are allowed to use", () => {
+		expect(parsePackVersion("1.2.3")).toEqual({
+			parts: [
+				1,
+				2,
+				3,
+			],
+			text: "1.2.3",
+		});
+	});
+
+	test("keeps a prerelease tag for display while still giving the triple the world file needs", () => {
+		expect(parsePackVersion("1.2.3-beta.4")).toEqual({
+			parts: [
+				1,
+				2,
+				3,
+			],
+			text: "1.2.3-beta.4",
+		});
+	});
+
+	test("answers null for a version it cannot read, rather than guessing zero", () => {
+		expect(parsePackVersion("latest")).toBeNull();
+		expect(parsePackVersion(undefined)).toBeNull();
+	});
+});
+
+describe("refusing a manifest that cannot be trusted", () => {
+	test("answers null for unparsable json", () => {
+		expect(parsePackManifest("{not json")).toBeNull();
+	});
+
+	test("answers null when the uuid is missing, because the world file is keyed by it", () => {
+		expect(
+			parsePackManifest(
+				JSON.stringify({
+					header: {
+						version: [
+							1,
+							0,
+							0,
+						],
+					},
+					modules: [
+						{
+							type: "data",
+						},
+					],
+				}),
+			),
+		).toBeNull();
+	});
+});
