@@ -14,6 +14,7 @@ export const DEFAULT_LEVEL_NAME = "world";
 
 const DEFAULTS: Record<string, string> = {
 	[PROPERTY_KEYS.allowCheats]: "false",
+	[PROPERTY_KEYS.allowList]: "false",
 	[PROPERTY_KEYS.chatRestriction]: "None",
 	[PROPERTY_KEYS.clientSideChunkGeneration]: "true",
 	[PROPERTY_KEYS.defaultPlayerPermissionLevel]: "member",
@@ -22,6 +23,7 @@ const DEFAULTS: Record<string, string> = {
 	[PROPERTY_KEYS.enableLanVisibility]: "true",
 	[PROPERTY_KEYS.forceGamemode]: "false",
 	[PROPERTY_KEYS.gamemode]: "survival",
+	[PROPERTY_KEYS.levelName]: DEFAULT_LEVEL_NAME,
 	[PROPERTY_KEYS.levelSeed]: "",
 	[PROPERTY_KEYS.maxPlayers]: "10",
 	[PROPERTY_KEYS.maxThreads]: "8",
@@ -33,7 +35,7 @@ const DEFAULTS: Record<string, string> = {
 	[PROPERTY_KEYS.viewDistance]: "32",
 };
 
-export const seedValues = (current: Record<string, string>, port: number, firstInstall: boolean) => {
+export const seedValues = (current: Record<string, string>, port: number) => {
 	const values: Record<string, string> = {
 		[PROPERTY_KEYS.contentLogFileEnabled]: "false",
 		[PROPERTY_KEYS.serverPort]: String(port),
@@ -46,15 +48,10 @@ export const seedValues = (current: Record<string, string>, port: number, firstI
 		}
 	}
 
-	if (firstInstall) {
-		values[PROPERTY_KEYS.allowList] = "false";
-		values[PROPERTY_KEYS.levelName] = DEFAULT_LEVEL_NAME;
-	}
-
 	return values;
 };
 
-export const seedConfig = async (context: Bridge.Context, firstInstall: boolean) => {
+export const seedConfig = async (context: Bridge.Context) => {
 	await context.files.ensure(WORLDS_DIRECTORY, BEHAVIOR_PACKS_DIRECTORY, RESOURCE_PACKS_DIRECTORY);
 
 	for (const file of [
@@ -66,5 +63,5 @@ export const seedConfig = async (context: Bridge.Context, firstInstall: boolean)
 		}
 	}
 
-	await mergeProperties(context, seedValues(await readProperties(context), context.port("game"), firstInstall));
+	await mergeProperties(context, seedValues(await readProperties(context), context.port("game")));
 };

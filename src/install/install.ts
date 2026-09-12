@@ -23,10 +23,6 @@ const prunePacks = async (context: Bridge.Context, previous: string[], current: 
 	}
 };
 
-const settled = async (context: Bridge.Context, firstInstall: boolean) => {
-	await seedConfig(context, firstInstall);
-};
-
 const install: Bridge.Install = {
 	kind: BridgeKind.Install,
 	async run(context) {
@@ -36,7 +32,7 @@ const install: Bridge.Install = {
 		const installed = await gameInstalled(context);
 
 		if (stamp !== null && stamp.channel === channel && pinned === stamp.version && installed) {
-			await settled(context, false);
+			await seedConfig(context);
 
 			return;
 		}
@@ -52,7 +48,7 @@ const install: Bridge.Install = {
 					version: stamp.version,
 				});
 
-				await settled(context, false);
+				await seedConfig(context);
 
 				return;
 			}
@@ -61,7 +57,7 @@ const install: Bridge.Install = {
 		}
 
 		if (stamp !== null && stamp.version === release.version && stamp.channel === channel && installed) {
-			await settled(context, false);
+			await seedConfig(context);
 
 			return;
 		}
@@ -79,7 +75,7 @@ const install: Bridge.Install = {
 		};
 
 		await writeInstallStamp(context, next);
-		await settled(context, stamp === null);
+		await seedConfig(context);
 
 		if (stamp !== null && stamp.channel === release.channel && stamp.version !== release.version) {
 			context.emit(BridgeEventName.ServerUpdated, {
