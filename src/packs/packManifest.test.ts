@@ -121,6 +121,32 @@ describe("reading a pack version", () => {
 	});
 });
 
+describe("reading a manifest the way the game does", () => {
+	test("accepts comments and trailing commas, which community add-ons ship and the game allows", () => {
+		const parsed = parsePackManifest(`/*
+	Credits header left by the add-on author
+*/
+{
+	"format_version": 1,
+	"header": {
+		"name": "M1A2 Tank Addon [BP]",
+		"uuid": "a1825b12-610a-4bf5-aaa3-ba685b6d3c1f",
+		"version": [1, 0, 0],
+		"min_engine_version": [1, 8, 0]
+	},
+	// the behavior half
+	"modules": [{ "type": "data", "uuid": "ebdbef84-1aee-4af1-b5e0-c917da03ad79", "version": [1, 0, 0] }],
+	"dependencies": [{ "uuid": "692256f2-404b-4509-8df3-b5b6ec299d2d", "version": [1, 0, 0] },],
+}`);
+
+		expect(parsed?.uuid).toBe("a1825b12-610a-4bf5-aaa3-ba685b6d3c1f");
+		expect(parsed?.kind).toBe(PackKind.Behavior);
+		expect(parsed?.dependencies).toEqual([
+			"692256f2-404b-4509-8df3-b5b6ec299d2d",
+		]);
+	});
+});
+
 describe("refusing a manifest that cannot be trusted", () => {
 	test("answers null for unparsable json", () => {
 		expect(parsePackManifest("{not json")).toBeNull();

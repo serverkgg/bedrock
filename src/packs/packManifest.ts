@@ -155,7 +155,7 @@ export const parsePackManifest = (text: string): PackManifest | null => {
 	let raw: RawManifest;
 
 	try {
-		raw = JSON.parse(text) as RawManifest;
+		raw = Bun.JSONC.parse(text) as RawManifest;
 	} catch {
 		return null;
 	}
