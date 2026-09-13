@@ -10,7 +10,7 @@ You have two routes, and both end up in the same place:
 1. **The catalog** — find an add-on and install it with one click.
 2. **Upload** — if you already have a `.mcaddon` or `.mcpack` file, upload it from the same tab.
 
-Before installing, we save a recovery backup and stop the game. We then install the add-on and start the server again if it was running. If it was stopped, it stays stopped.
+Install with your server stopped — a pack cannot go in while the game runs. We install the add-on and activate it on your world, and you start the server again afterwards.
 
 > [!note]
 > A single `.mcaddon` file can hold more than one add-on — usually a behavior pack and a resource pack together. We unpack it and install all of them.
@@ -28,7 +28,7 @@ The installed list includes discovered packs from the active world and server fo
 
 Installing or enabling a pack checks required pack versions and its declared minimum Minecraft version. Required packs are activated first. Missing dependencies and dependency cycles stop activation. Disable dependent add-ons before disabling a pack they need.
 
-A pack used by another world cannot be removed or switched to a different version until those references are removed. This prevents fixing one world from breaking another. Pack changes use a recovery backup and a stopped server. Failed staged installation restores the previous files.
+A pack used by another world cannot be removed or switched to a different version until those references are removed. This prevents fixing one world from breaking another. Pack changes need a stopped server, and only removing a pack takes a recovery backup first. Failed staged installation restores the previous files.
 
 After restarting, check **Server status** for recent content errors and open the console for the full message. “Installed” means the files are present; it does not claim the game loaded the add-on.
 

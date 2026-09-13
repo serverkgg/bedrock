@@ -178,9 +178,6 @@ export const exportWorld = async (context: Bridge.Context, source: string) => {
 
 export const worldTools: Bridge.Actions = {
 	kind: BridgeKind.Actions,
-	protectedActions: [
-		"create",
-	],
 	actions: {
 		async create(context, args) {
 			requireStopped(context);

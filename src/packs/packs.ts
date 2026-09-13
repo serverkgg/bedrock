@@ -12,11 +12,6 @@ import { movePackEntry, readWorldPacks, writeWorldPacks } from "./packRegistry";
 export const packs: Bridge.Collection = {
 	kind: BridgeKind.Collection,
 	protectedActions: [
-		"add",
-		"enable",
-		"disable",
-		"moveUp",
-		"moveDown",
 		"remove",
 	],
 

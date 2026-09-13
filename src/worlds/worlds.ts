@@ -59,11 +59,7 @@ const unpack = async (context: Bridge.Context, archive: string, destination: str
 export const worlds: Bridge.Collection = {
 	kind: BridgeKind.Collection,
 	protectedActions: [
-		"add",
-		"activate",
 		"delete",
-		"clone",
-		"export",
 	],
 
 	async list(context) {

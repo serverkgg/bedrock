@@ -38,11 +38,6 @@ export const encodeRef = (project: number | string) => `${PROVIDER}:${project}`;
 
 export const packCatalog: Bridge.Catalog = {
 	kind: BridgeKind.Catalog,
-	protectedActions: [
-		"install",
-		"remove",
-		"toggle",
-	],
 	pageSize: PAGE_SIZE,
 
 	async search(context, query) {

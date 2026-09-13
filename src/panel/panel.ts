@@ -902,8 +902,8 @@ const worldsTab: Bridge.Tab = {
 				en: "Worlds",
 			},
 			help: {
-				ar: "قبل أي تغيير نحفظ نسخة استرجاع، ونرجّع السيرفر شغّال إذا كان شغّال. على بيدروك الأبعاد كلها في قاعدة بيانات وحدة، فما نقدر نصفّر بُعد لحاله.",
-				en: "Each change saves a recovery backup and restarts the server if it was running. Bedrock stores all dimensions together, so a single dimension cannot be reset separately.",
+				ar: "أي تغيير على المابات يبي سيرفرك واقف. الحذف بس ناخذ له نسخة استرجاع ونرجّع السيرفر شغّال إذا كان شغّال. على بيدروك الأبعاد كلها في قاعدة بيانات وحدة، فما نقدر نصفّر بُعد لحاله.",
+				en: "Every world change needs your server stopped. Only a delete saves a recovery backup and restarts the server if it was running. Bedrock stores all dimensions together, so a single dimension cannot be reset separately.",
 			},
 			module: "worlds",
 			columns: [
@@ -988,8 +988,8 @@ const worldsTab: Bridge.Tab = {
 					},
 					confirm: BridgeConfirm.Normal,
 					confirmText: {
-						ar: "بنأخذ نسخة للرجوع ونوقف السيرفر عشان نبدّل الماب. لو كان شغّال، يرجع يشتغل بعد التبديل.",
-						en: "We create a recovery backup and stop the server to switch worlds. It starts again afterwards if it was running.",
+						ar: "بنبدّل الماب المفعّلة، ولازم سيرفرك يكون واقف. شغّله بعدها عشان تفتح الماب الجديدة.",
+						en: "We switch the active world, and your server must be stopped. Start it again afterwards to open the new world.",
 					},
 				},
 				{
@@ -1025,8 +1025,8 @@ const addonsTab: Bridge.Tab = {
 				en: "Add-on catalog",
 			},
 			help: {
-				ar: "دوّر على أدون وركّبه بضغطة. نحفظ نسخة استرجاع قبل التغيير، ونركّبه ونفعّله على مابك، ونرجّع السيرفر شغّال إذا كان شغّال.",
-				en: "Install an add-on in one click. We save a recovery backup, activate it on your world, and restart the server if it was running.",
+				ar: "دوّر على أدون وركّبه بضغطة وسيرفرك واقف. نركّبه ونفعّله على مابك، وبعدها شغّل سيرفرك.",
+				en: "Install an add-on in one click with your server stopped. We install it and activate it on your world; start your server afterwards.",
 			},
 			module: "packCatalog",
 		},
@@ -1065,8 +1065,8 @@ const addonsTab: Bridge.Tab = {
 				en: "Installed add-ons",
 			},
 			help: {
-				ar: "قبل أي تغيير نحفظ نسخة استرجاع، ونرجّع السيرفر شغّال إذا كان شغّال. الترتيب يقرر مين يطلع فوق لو أدونين غيّروا نفس الشي.",
-				en: "Each change saves a recovery backup and restarts the server if it was running. Order decides which pack wins when two change the same thing.",
+				ar: "أي تغيير يبي سيرفرك واقف. الحذف بس ناخذ له نسخة استرجاع ونرجّع السيرفر شغّال إذا كان شغّال. الترتيب يقرر مين يطلع فوق لو أدونين غيّروا نفس الشي.",
+				en: "Every change needs your server stopped. Only removing an add-on saves a recovery backup and restarts the server if it was running. Order decides which pack wins when two change the same thing.",
 			},
 			module: "packs",
 			columns: [
