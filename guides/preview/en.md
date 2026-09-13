@@ -7,7 +7,7 @@ Preview is where Microsoft tries new things before they reach everyone. You can 
 > [!danger]
 > A world opened on preview does not come back to the release build. Preview upgrades your world data to a newer format that the release build cannot read. This is a one-way door.
 
-So: take a backup before you switch. If you move back to release later, you will need to restore the backup you took before switching.
+The version operation creates a recovery backup before switching. To return safely, restore that pre-switch backup with its recorded runtime version. Installing an older build alone cannot undo changes to the world.
 
 ## Players need the same build
 
@@ -21,3 +21,7 @@ So if you switch, all of your friends have to switch with you.
 - You are building an add-on and want to test it against the new format.
 
 If neither is true, stay on the release build. It is the steadier one, and it is the one all of your friends can already join.
+
+## Updates are explicit
+
+**Keep installed build** picks the latest build only at first installation. Ordinary restarts keep that concrete version. To update, choose a new version number in **Version**. Recovery backups also preserve the installed build metadata; an unavailable requested build fails visibly instead of silently substituting another one.

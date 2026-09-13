@@ -141,3 +141,15 @@ describe("activating and ordering packs", () => {
 		expect(movePackEntry(entries, "c", 1)).toEqual(entries);
 	});
 });
+
+test("a corrupt activation registry cannot be silently replaced with an empty list", async () => {
+	const { readWorldPacks } = await import("./packRegistry");
+	type Context = import("@serverkgg/bridge").Bridge.Context;
+	const context = {
+		files: {
+			exists: async () => true,
+			read: async () => "{broken",
+		},
+	} as unknown as Context;
+	await expect(readWorldPacks(context, "world", PackKind.Behavior)).rejects.toThrow();
+});

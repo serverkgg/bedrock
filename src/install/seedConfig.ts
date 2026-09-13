@@ -13,6 +13,7 @@ import {
 export const DEFAULT_LEVEL_NAME = "world";
 
 const DEFAULTS: Record<string, string> = {
+	[PROPERTY_KEYS.contentLogConsoleOutputEnabled]: "true",
 	[PROPERTY_KEYS.allowCheats]: "false",
 	[PROPERTY_KEYS.allowList]: "false",
 	[PROPERTY_KEYS.chatRestriction]: "None",
@@ -20,7 +21,6 @@ const DEFAULTS: Record<string, string> = {
 	[PROPERTY_KEYS.defaultPlayerPermissionLevel]: "member",
 	[PROPERTY_KEYS.difficulty]: "easy",
 	[PROPERTY_KEYS.disablePlayerInteraction]: "false",
-	[PROPERTY_KEYS.enableLanVisibility]: "true",
 	[PROPERTY_KEYS.forceGamemode]: "false",
 	[PROPERTY_KEYS.gamemode]: "survival",
 	[PROPERTY_KEYS.levelName]: DEFAULT_LEVEL_NAME,
@@ -38,6 +38,7 @@ const DEFAULTS: Record<string, string> = {
 export const seedValues = (current: Record<string, string>, port: number) => {
 	const values: Record<string, string> = {
 		[PROPERTY_KEYS.contentLogFileEnabled]: "false",
+		[PROPERTY_KEYS.enableLanVisibility]: "true",
 		[PROPERTY_KEYS.serverPort]: String(port),
 		[PROPERTY_KEYS.serverPortV6]: String(port + 1),
 	};

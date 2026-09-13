@@ -83,4 +83,15 @@ describe("seeding server.properties", () => {
 
 		expect(values[PROPERTY_KEYS.contentLogFileEnabled]).toBe("false");
 	});
+
+	test("keeps lan visibility on, because bedrock stops advertising itself to players without it", () => {
+		const values = seedValues(
+			{
+				[PROPERTY_KEYS.enableLanVisibility]: "false",
+			},
+			19_132,
+		);
+
+		expect(values[PROPERTY_KEYS.enableLanVisibility]).toBe("true");
+	});
 });

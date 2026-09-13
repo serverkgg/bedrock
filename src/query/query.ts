@@ -1,6 +1,5 @@
 import { type Bridge, BridgeKind } from "@serverkgg/bridge";
 import { createRosterSync } from "@serverkgg/bridge/presence";
-import { resumeStaleHold } from "../backup";
 import { type BedrockPlayer, presenceOf, roster, sampleRoster, watchRoster } from "../shared";
 
 const REFRESH_SECONDS = 20;
@@ -16,8 +15,6 @@ export const query: Bridge.Query = {
 
 	async sample(context) {
 		watchRoster(context);
-
-		await resumeStaleHold(context);
 
 		try {
 			const pong = await context.probe.raknetPing(context.port("game"));

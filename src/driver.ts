@@ -14,7 +14,7 @@ import { query } from "./query";
 import { settings } from "./settings";
 import { setup } from "./setup";
 import { terminal } from "./terminal";
-import { worlds } from "./worlds";
+import { worlds, worldTools } from "./worlds";
 
 export const driver: Bridge.Driver = {
 	install,
@@ -39,5 +39,6 @@ export const driver: Bridge.Driver = {
 		settings,
 		status,
 		worlds,
+		worldTools,
 	},
 };

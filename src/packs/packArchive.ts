@@ -1,8 +1,5 @@
 import { type Bridge, BridgeUserError } from "@serverkgg/bridge";
-import { execDetail } from "@serverkgg/bridge/utils";
 import { type PackManifest, parsePackManifest } from "./packManifest";
-
-const UNZIP_TIMEOUT_MS = 600_000;
 
 const FIND_TIMEOUT_MS = 60_000;
 
@@ -34,34 +31,30 @@ export const packDirectories = (output: string): string[] => {
 	});
 };
 
-export const unpackArchive = async (context: Bridge.Context, archive: string, destination: string) => {
+export const unpackArchive = async (
+	context: Bridge.Context,
+	archive: string,
+	destination: string,
+	maxBytes = 2 * 1024 ** 3,
+) => {
 	await context.files.remove(destination);
 	await context.files.ensure(destination);
 
-	const result = await context.exec(
-		[
-			"unzip",
-			"-o",
-			"-q",
-			archive,
-			"-d",
-			destination,
-			"-x",
-			"__MACOSX/*",
-		],
-		{
-			timeoutMs: UNZIP_TIMEOUT_MS,
-		},
-	);
-
-	if (result.code !== 0) {
-		context.log.error("could not unpack an uploaded add-on", {
-			reason: execDetail(result),
+	try {
+		await context.files.extract(archive, destination, {
+			tree: true,
+			maxBytes,
+			exclude: [
+				"__MACOSX/**",
+			],
 		});
-
+	} catch (error) {
+		context.log.error("could not unpack an uploaded add-on", {
+			reason: error instanceof Error ? error.message : String(error),
+		});
 		throw new BridgeUserError({
-			ar: "ما قدرنا نفك الملف. تأكد إنه ملف أدون سليم وجرّب مرة ثانية.",
-			en: "we could not unpack the file — check it is a valid add-on and try again",
+			ar: "ما قدرنا نفك الأدون. تأكد إن الملف سليم وحجمه يناسب مساحة السيرفر.",
+			en: "We could not unpack the add-on. Check the archive and available server space.",
 		});
 	}
 };
@@ -81,7 +74,12 @@ const unpackNested = async (context: Bridge.Context, root: string) => {
 		},
 	);
 
-	for (const line of found.stdout.split("\n")) {
+	const archives = found.stdout.split("\n").filter((line) => line.trim().length > 0);
+	if (archives.length > 32) {
+		throw new Error("the add-on contains too many nested packs");
+	}
+	let remaining = 2 * 1024 ** 3 - (await context.files.size(root));
+	for (const line of archives) {
 		const nested = line.trim();
 
 		if (nested.length === 0) {
@@ -90,7 +88,11 @@ const unpackNested = async (context: Bridge.Context, root: string) => {
 
 		const directory = nested.slice(0, nested.lastIndexOf("."));
 
-		await unpackArchive(context, nested, directory);
+		if (remaining <= 0 || (await context.files.exists(directory))) {
+			throw new Error("the nested pack exceeds the expansion budget or overlaps another pack");
+		}
+		await unpackArchive(context, nested, directory, remaining);
+		remaining -= await context.files.size(directory);
 		await context.files.remove(nested);
 	}
 };

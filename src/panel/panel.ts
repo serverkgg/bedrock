@@ -157,8 +157,8 @@ const versionTab: Bridge.Tab = {
 			reinstall: true,
 			confirm: BridgeConfirm.Strong,
 			confirmText: {
-				ar: "بنعيد تركيب السيرفر على النسخة الجديدة. ماباتك وإعداداتك وأدوناتك تبقى مكانها، بس خذ نسخة احتياطية قبل: الماب اللي تفتح على البريفيو ما ترجع للنسخة العادية.",
-				en: "We reinstall the server on the new build. Your worlds, settings and add-ons stay where they are, but take a backup first: a world opened on preview does not come back to release.",
+				ar: "بنأخذ نسخة للرجوع قبل تركيب النسخة الجديدة. الرجوع من البريفيو يحتاج ماب محفوظة قبل التبديل، مو بس تغيير رقم النسخة.",
+				en: "We create a recovery backup before installing the new build. Returning from preview requires a world saved before the switch, not just a different build number.",
 			},
 			fields: [
 				{
@@ -197,8 +197,8 @@ const versionTab: Bridge.Tab = {
 						en: "Build",
 					},
 					help: {
-						ar: "خله على «أحدث نسخة» إلا إذا تبي تثبّت رقم معيّن.",
-						en: "Leave it on Latest unless you want to pin a specific build.",
+						ar: "احتفظ بالنسخة المركّبة، أو اختر رقم النسخة الجديدة عشان تحدّث.",
+						en: "Keep the installed build, or select a new build number to update.",
 					},
 					options: {
 						module: "gameVersion",
@@ -350,14 +350,6 @@ const settingsTab: Bridge.Tab = {
 					help: {
 						ar: "لما تشغّلها، ما يدخل إلا اللي في القائمة — وهذي طريقتك الوحيدة تمنع أحد.",
 						en: "With it on, only players on the list can join — and it is your only way to keep someone out.",
-					},
-				},
-				{
-					key: PROPERTY_KEYS.enableLanVisibility,
-					control: BridgeControl.Boolean,
-					label: {
-						ar: "يظهر في الشبكة المحلية",
-						en: "Visible on the local network",
 					},
 				},
 				{
@@ -864,6 +856,45 @@ const worldsTab: Bridge.Tab = {
 	icon: BridgeIcon.Map,
 	sections: [
 		{
+			layout: BridgeLayout.Actions,
+			id: "new-world",
+			title: {
+				ar: "ماب جديدة",
+				en: "New world",
+			},
+			module: "worldTools",
+			actions: [
+				{
+					id: "create",
+					label: {
+						ar: "أنشئ ماب وفعّلها",
+						en: "Create and activate world",
+					},
+					confirm: BridgeConfirm.Normal,
+					fields: [
+						{
+							key: "name",
+							control: BridgeControl.Text,
+							label: {
+								ar: "اسم الماب",
+								en: "World name",
+							},
+							maxLength: 64,
+						},
+						{
+							key: "seed",
+							control: BridgeControl.Text,
+							label: {
+								ar: "السييد (اختياري)",
+								en: "Seed (optional)",
+							},
+							maxLength: 64,
+						},
+					],
+				},
+			],
+		},
+		{
 			layout: BridgeLayout.Table,
 			id: "worlds",
 			title: {
@@ -871,11 +902,10 @@ const worldsTab: Bridge.Tab = {
 				en: "Worlds",
 			},
 			help: {
-				ar: "على بيدروك النذر والإند والأوفرورلد كلهم في قاعدة بيانات وحدة، فما فيه طريقة نصفّر بُعد واحد لحاله.",
-				en: "On Bedrock the Overworld, the Nether and the End all live in one database, so there is no way to reset a single dimension on its own.",
+				ar: "قبل أي تغيير نحفظ نسخة استرجاع، ونرجّع السيرفر شغّال إذا كان شغّال. على بيدروك الأبعاد كلها في قاعدة بيانات وحدة، فما نقدر نصفّر بُعد لحاله.",
+				en: "Each change saves a recovery backup and restarts the server if it was running. Bedrock stores all dimensions together, so a single dimension cannot be reset separately.",
 			},
 			module: "worlds",
-			restartHint: true,
 			columns: [
 				{
 					key: "name",
@@ -921,6 +951,36 @@ const worldsTab: Bridge.Tab = {
 			},
 			actions: [
 				{
+					id: "clone",
+					label: {
+						ar: "انسخ الماب",
+						en: "Clone world",
+					},
+					fields: [
+						{
+							key: "name",
+							control: BridgeControl.Text,
+							label: {
+								ar: "اسم النسخة",
+								en: "Copy name",
+							},
+							maxLength: 64,
+						},
+					],
+				},
+				{
+					id: "export",
+					label: {
+						ar: "صدّر إلى الملفات",
+						en: "Export to Files",
+					},
+					confirm: BridgeConfirm.Normal,
+					confirmText: {
+						ar: "بنجهّز ملف .mcworld داخل مجلد exports في الملفات. تقدر تنزّله وتفتحه في بيدروك.",
+						en: "We prepare a .mcworld in the exports folder in Files. Download it and open it in Bedrock.",
+					},
+				},
+				{
 					id: "activate",
 					label: {
 						ar: "فعّلها",
@@ -928,8 +988,8 @@ const worldsTab: Bridge.Tab = {
 					},
 					confirm: BridgeConfirm.Normal,
 					confirmText: {
-						ar: "بنبدّل السيرفر لهذي الماب. لازم إعادة تشغيل عشان تشتغل.",
-						en: "We switch the server to this world. It needs a restart to take effect.",
+						ar: "بنأخذ نسخة للرجوع ونوقف السيرفر عشان نبدّل الماب. لو كان شغّال، يرجع يشتغل بعد التبديل.",
+						en: "We create a recovery backup and stop the server to switch worlds. It starts again afterwards if it was running.",
 					},
 				},
 				{
@@ -940,8 +1000,8 @@ const worldsTab: Bridge.Tab = {
 					},
 					confirm: BridgeConfirm.Strong,
 					confirmText: {
-						ar: "حذف الماب يشيلها كاملة — الأوفرورلد والنذر والإند وكل شيء بنيتوه — للأبد. النسخة الاحتياطية هي طريقك الوحيد للرجوع، فخذ لك وحدة قبل لا تكمّل.",
-						en: "Deleting a world removes all of it — Overworld, Nether, End, everything you built — forever. A backup is your only way back, so take one before you continue.",
+						ar: "حذف الماب يشيل الأوفرورلد والنذر والإند وكل شيء بنيتوه. بنأخذ نسخة للرجوع قبل الحذف؛ لو النسخ فشل، الحذف ما يكمل.",
+						en: "Deleting the world removes the Overworld, Nether, End and everything you built. We create a recovery backup first; if backup fails, deletion stops.",
 					},
 				},
 			],
@@ -965,11 +1025,10 @@ const addonsTab: Bridge.Tab = {
 				en: "Add-on catalog",
 			},
 			help: {
-				ar: "دوّر على أدون وركّبه بضغطة. نركّبه ونفعّله على مابك، بس اللعبة ما تقراه إلا بعد إعادة التشغيل.",
-				en: "Find an add-on and install it in one click. We install and activate it on your world, but the game only reads it after a restart.",
+				ar: "دوّر على أدون وركّبه بضغطة. نحفظ نسخة استرجاع قبل التغيير، ونركّبه ونفعّله على مابك، ونرجّع السيرفر شغّال إذا كان شغّال.",
+				en: "Install an add-on in one click. We save a recovery backup, activate it on your world, and restart the server if it was running.",
 			},
 			module: "packCatalog",
-			restartHint: true,
 		},
 		{
 			layout: BridgeLayout.Table,
@@ -979,12 +1038,32 @@ const addonsTab: Bridge.Tab = {
 				en: "Installed add-ons",
 			},
 			help: {
-				ar: "نركّبها ونفعّلها على مابك على طول، بس اللعبة ما تقراها إلا بعد إعادة التشغيل. الترتيب يقرر مين يطلع فوق لو أدونين غيّروا نفس الشي.",
-				en: "We install and activate them on your world right away, but the game only reads them after a restart. Order decides which one wins when two change the same thing.",
+				ar: "قبل أي تغيير نحفظ نسخة استرجاع، ونرجّع السيرفر شغّال إذا كان شغّال. الترتيب يقرر مين يطلع فوق لو أدونين غيّروا نفس الشي.",
+				en: "Each change saves a recovery backup and restarts the server if it was running. Order decides which pack wins when two change the same thing.",
 			},
 			module: "packs",
-			restartHint: true,
 			columns: [
+				{
+					key: "worlds",
+					label: {
+						ar: "المابات اللي تستخدمه",
+						en: "Used by worlds",
+					},
+				},
+				{
+					key: "requirements",
+					label: {
+						ar: "المتطلبات",
+						en: "Requirements",
+					},
+				},
+				{
+					key: "load",
+					label: {
+						ar: "حالة التركيب",
+						en: "Install state",
+					},
+				},
 				{
 					key: "name",
 					label: {

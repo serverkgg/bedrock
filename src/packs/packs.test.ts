@@ -12,7 +12,7 @@ describe("placing an installed pack on disk", () => {
 	test("suffixes the folder with the uuid, so reinstalling the same pack lands in the same place", () => {
 		const uuid = "8f3a1b2c-0000-0000-0000-000000000001";
 
-		expect(packFolderName("Cool Addon", uuid)).toBe("Cool-Addon-8f3a1b2c");
+		expect(packFolderName("Cool Addon", uuid)).toBe(`Cool-Addon-${uuid}`);
 		expect(packFolderName("Cool Addon", uuid)).toBe(packFolderName("Cool Addon", uuid));
 	});
 
@@ -21,11 +21,11 @@ describe("placing an installed pack on disk", () => {
 	});
 
 	test("keeps an arabic title in the folder name, because arabic is the source language here", () => {
-		expect(packFolderName("!!! أدون !!!", "8f3a1b2c-0000")).toBe("أدون-8f3a1b2c");
+		expect(packFolderName("!!! أدون !!!", "8f3a1b2c-0000")).toBe("أدون-8f3a1b2c-0000");
 	});
 
 	test("still refuses anything that could climb out of the packs directory", () => {
-		expect(packFolderName("../../etc", "8f3a1b2c-0000")).toBe("etc-8f3a1b2c");
+		expect(packFolderName("../../etc", "8f3a1b2c-0000")).toBe("etc-8f3a1b2c-0000");
 	});
 });
 

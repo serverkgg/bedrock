@@ -6,12 +6,13 @@ import {
 	curseforgeDownloadUrl,
 	curseforgeSha1,
 } from "@serverkgg/bridge/catalogs";
-import { PACK_STAGING } from "../shared";
+import { PACK_STAGING, requireStopped } from "../shared";
 import { activeWorld } from "../worlds";
+import { inventoryPacks } from "./packDiscovery";
 import { installPackSource } from "./packInstall";
 import { PackKind } from "./packManifest";
-import { readWorldPacks, withPackDeactivated, writeWorldPacks } from "./packRegistry";
-import { readPackSidecar, writePackSidecar } from "./packSidecar";
+import { removePacks, setPacksEnabled } from "./packMutation";
+import { readWorldPacks } from "./packRegistry";
 
 export const BEDROCK_GAME_ID = 78_022;
 
@@ -37,6 +38,11 @@ export const encodeRef = (project: number | string) => `${PROVIDER}:${project}`;
 
 export const packCatalog: Bridge.Catalog = {
 	kind: BridgeKind.Catalog,
+	protectedActions: [
+		"install",
+		"remove",
+		"toggle",
+	],
 	pageSize: PAGE_SIZE,
 
 	async search(context, query) {
@@ -123,7 +129,7 @@ export const packCatalog: Bridge.Catalog = {
 	},
 
 	async installed(context) {
-		const sidecar = await readPackSidecar(context);
+		const sidecar = await inventoryPacks(context);
 		const world = await activeWorld(context);
 		const active = new Map<PackKind, string[]>();
 
@@ -159,6 +165,7 @@ export const packCatalog: Bridge.Catalog = {
 	},
 
 	async install(context, id) {
+		requireStopped(context);
 		const project = decodeRef(id);
 
 		if (project === null) {
@@ -236,23 +243,24 @@ export const packCatalog: Bridge.Catalog = {
 	},
 
 	async remove(context, id) {
-		const sidecar = await readPackSidecar(context);
+		const sidecar = await inventoryPacks(context);
 		const project = decodeRef(id);
-		const world = await activeWorld(context);
-
-		for (const pack of Object.values(sidecar.packs)) {
-			if (pack.uuid !== id && (project === null || pack.project !== project)) {
-				continue;
-			}
-
-			const entries = await readWorldPacks(context, world, pack.kind);
-
-			await writeWorldPacks(context, world, pack.kind, withPackDeactivated(entries, pack.uuid));
-			await context.files.remove(pack.folder);
-
-			delete sidecar.packs[pack.uuid];
-		}
-
-		await writePackSidecar(context, sidecar);
+		await removePacks(
+			context,
+			Object.values(sidecar.packs)
+				.filter((pack) => pack.uuid === id || (project !== null && pack.project === project))
+				.map((pack) => pack.uuid),
+		);
+	},
+	async toggle(context, id, enabled) {
+		const sidecar = await inventoryPacks(context);
+		const project = decodeRef(id);
+		await setPacksEnabled(
+			context,
+			Object.values(sidecar.packs)
+				.filter((pack) => pack.uuid === id || (project !== null && pack.project === project))
+				.map((pack) => pack.uuid),
+			enabled,
+		);
 	},
 };

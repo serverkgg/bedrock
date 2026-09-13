@@ -1,10 +1,10 @@
 import { type Bridge, BridgeKind, BridgeUserError } from "@serverkgg/bridge";
-import { execDetail } from "@serverkgg/bridge/utils";
 import {
 	formatByteSize,
 	isUnder,
 	nameOf,
 	relativeUploadPath,
+	requireStopped,
 	WORLD_STAGING,
 	withoutExtension,
 	worldPath,
@@ -20,7 +20,7 @@ import {
 	worldSize,
 } from "./world";
 
-const UNZIP_TIMEOUT_MS = 600_000;
+import { cloneWorld, existingWorld, exportWorld } from "./worldTools";
 
 const notAWorld = new BridgeUserError({
 	ar: "ما لقينا ملف level.dat جوّا الملف. تأكد إنك رافع ملف ماب بصيغة .mcworld طالع من اللعبة نفسها.",
@@ -41,34 +41,30 @@ const unpack = async (context: Bridge.Context, archive: string, destination: str
 	await context.files.remove(destination);
 	await context.files.ensure(destination);
 
-	const result = await context.exec(
-		[
-			"unzip",
-			"-o",
-			"-q",
-			archive,
-			"-d",
-			destination,
-		],
-		{
-			timeoutMs: UNZIP_TIMEOUT_MS,
-		},
-	);
-
-	if (result.code !== 0) {
-		context.log.error("could not unpack an uploaded world", {
-			reason: execDetail(result),
+	try {
+		await context.files.extract(archive, destination, {
+			tree: true,
 		});
-
+	} catch (error) {
+		context.log.error("could not unpack an uploaded world", {
+			reason: error instanceof Error ? error.message : String(error),
+		});
 		throw new BridgeUserError({
-			ar: "ما قدرنا نفك الملف. تأكد إنه ملف .mcworld سليم وجرّب مرة ثانية.",
-			en: "we could not unpack the file — check it is a valid .mcworld and try again",
+			ar: "ما قدرنا نفك الماب. تأكد إن الملف سليم وحجمه يناسب مساحة السيرفر.",
+			en: "We could not unpack the world. Check the archive and available server space.",
 		});
 	}
 };
 
 export const worlds: Bridge.Collection = {
 	kind: BridgeKind.Collection,
+	protectedActions: [
+		"add",
+		"activate",
+		"delete",
+		"clone",
+		"export",
+	],
 
 	async list(context) {
 		const active = await activeWorld(context);
@@ -89,6 +85,7 @@ export const worlds: Bridge.Collection = {
 	},
 
 	async add(context, input) {
+		requireStopped(context);
 		const relative = relativeUploadPath(input);
 
 		if (relative === null || !isUnder(relative, WORLD_STAGING)) {
@@ -137,8 +134,15 @@ export const worlds: Bridge.Collection = {
 	},
 
 	actions: {
+		async clone(context, row, args) {
+			await cloneWorld(context, String(row.id), String(args.name ?? ""));
+		},
+		async export(context, row) {
+			await exportWorld(context, String(row.id));
+		},
 		async activate(context, row) {
-			const folder = String(row.folder);
+			requireStopped(context);
+			const folder = await existingWorld(context, String(row.id));
 
 			if (folder === (await activeWorld(context))) {
 				throw new BridgeUserError({
@@ -155,7 +159,8 @@ export const worlds: Bridge.Collection = {
 		},
 
 		async delete(context, row) {
-			const folder = String(row.folder);
+			requireStopped(context);
+			const folder = await existingWorld(context, String(row.id));
 
 			if (folder === (await activeWorld(context))) {
 				throw new BridgeUserError({

@@ -1,13 +1,20 @@
 import { type Bridge, BridgeKind, BridgeUserError } from "@serverkgg/bridge";
-import { holdSave, resumeSave } from "./bedrockSave";
+import { holding, holdSave, resumeSave } from "./bedrockSave";
 
 export const backup: Bridge.Backup = {
 	kind: BridgeKind.Backup,
 	settleSeconds: 0,
 
 	async quiesce(context) {
+		if (holding()) {
+			throw new Error("a backup already owns the world save hold");
+		}
 		try {
-			await holdSave(context);
+			const snapshot = await holdSave(context);
+			context.log("prepared the world file boundaries for the backup");
+			return {
+				snapshot,
+			};
 		} catch (error) {
 			await resumeSave(context);
 
@@ -20,8 +27,6 @@ export const backup: Bridge.Backup = {
 				en: "the server did not answer while it was preparing the world for copying. try again, and if it keeps happening stop the server and take the backup with it off.",
 			});
 		}
-
-		context.log("froze the world, it is consistent on disk for the archiver");
 	},
 
 	async release(context) {

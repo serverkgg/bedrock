@@ -19,7 +19,6 @@ export const SETTINGS_KEYS: string[] = [
 	PROPERTY_KEYS.disableCustomSkins,
 	PROPERTY_KEYS.disablePersona,
 	PROPERTY_KEYS.disablePlayerInteraction,
-	PROPERTY_KEYS.enableLanVisibility,
 	PROPERTY_KEYS.forceGamemode,
 	PROPERTY_KEYS.gamemode,
 	PROPERTY_KEYS.levelSeed,

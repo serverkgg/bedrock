@@ -1,55 +1,79 @@
 import { type Bridge, BridgeDetailFormat, BridgeDetailTone, BridgeKind } from "@serverkgg/bridge";
-import { CHANNEL_LABELS, channelOf, ReleaseChannel, readInstallStamp } from "../install";
+import { CHANNEL_LABELS, channelOf, pinnedVersionOf, ReleaseChannel, readInstallStamp } from "../install";
 import { booleanOf, PROPERTY_KEYS, readProperties } from "../shared";
 import { activeWorld, worldSize } from "../worlds";
 
 const REFRESH_SECONDS = 15;
 
 interface BedrockHealth {
-	online: number;
-	max: number;
+	online: number | null;
+	max: number | null;
 	version: string | null;
 	protocol: number | null;
 	gamemode: string | null;
 	motd: string | null;
-	latencyMs: number;
+	latencyMs: number | null;
 	world: string;
 	worldBytes: number;
 	allowList: boolean;
 	channel: ReleaseChannel;
 	build: string | null;
+	selected: string;
+	installedChannel: ReleaseChannel | null;
+	reachable: boolean;
+	contentErrors: string;
 }
 
-let stored: BedrockHealth | null = null;
-
-const sample = async (context: Bridge.Context): Promise<BedrockHealth | null> => {
-	try {
-		const pong = await context.probe.raknetPing(context.port("game"));
-		const properties = await readProperties(context);
-		const world = await activeWorld(context);
-		const stamp = await readInstallStamp(context);
-
-		return {
-			online: pong.players.online,
-			max: pong.players.max,
-			version: pong.version,
-			protocol: pong.protocol,
-			gamemode: pong.gamemode,
-			motd: pong.motd,
-			latencyMs: pong.latencyMs,
-			world,
-			worldBytes: await worldSize(context, world),
-			allowList: booleanOf(properties[PROPERTY_KEYS.allowList]),
-			channel: channelOf(context),
-			build: stamp?.label ?? null,
-		};
-	} catch {
-		return null;
+const sample = async (context: Bridge.Context): Promise<BedrockHealth> => {
+	let pong: Awaited<ReturnType<Bridge.Context["probe"]["raknetPing"]>> | null = null;
+	if (context.server.running) {
+		try {
+			pong = await context.probe.raknetPing(context.port("game"));
+		} catch {
+			pong = null;
+		}
 	}
+	const properties = await readProperties(context);
+	const world = await activeWorld(context);
+	const stamp = await readInstallStamp(context);
+	const lines = await context.logs.tail(100);
+	const errors = lines.filter((line) =>
+		/\[(?:Scripting|ContentLog)\].*(?:error|warning)|\b(?:Missing dependency|Failed to load pack)\b/i.test(line),
+	);
+	return {
+		online: pong?.players.online ?? null,
+		max: pong?.players.max ?? null,
+		version: pong?.version ?? null,
+		protocol: pong?.protocol ?? null,
+		gamemode: pong?.gamemode ?? null,
+		motd: pong?.motd ?? null,
+		latencyMs: pong?.latencyMs ?? null,
+		world,
+		worldBytes: await worldSize(context, world),
+		allowList: booleanOf(properties[PROPERTY_KEYS.allowList]),
+		channel: channelOf(context),
+		build: stamp?.label ?? null,
+		installedChannel: stamp?.channel ?? null,
+		selected: pinnedVersionOf(context) ?? "Keep installed",
+		reachable: pong !== null,
+		contentErrors: errors.slice(-3).join("\n") || "—",
+	};
 };
 
 const badges = (health: BedrockHealth): Bridge.DetailBadge[] => {
 	return [
+		{
+			label: health.reachable
+				? {
+						ar: "السيرفر يرد على اتصال بيدروك",
+						en: "Bedrock connection responds",
+					}
+				: {
+						ar: "ما وصلنا رد من بيدروك",
+						en: "No Bedrock connection response",
+					},
+			tone: health.reachable ? BridgeDetailTone.Success : BridgeDetailTone.Warning,
+		},
 		{
 			label: {
 				ar: CHANNEL_LABELS[health.channel],
@@ -91,16 +115,43 @@ const stats = (context: Bridge.Context, health: BedrockHealth): Bridge.DetailSta
 				ar: "اللاعبين",
 				en: "Players",
 			},
-			value: `${health.online}/${health.max}`,
+			value: health.online === null ? "—" : `${health.online}/${health.max}`,
 			format: BridgeDetailFormat.Text,
 		},
 		{
 			key: "version",
 			label: {
-				ar: "نسخة اللعبة",
-				en: "Game version",
+				ar: "النسخة اللي ترد على الاتصال",
+				en: "Responding game version",
 			},
-			value: health.version ?? health.build ?? "—",
+			value: health.version ?? "—",
+			format: BridgeDetailFormat.Text,
+		},
+		{
+			key: "selected",
+			label: {
+				ar: "النسخة المختارة",
+				en: "Selected version",
+			},
+			value: `${CHANNEL_LABELS[health.channel]} · ${health.selected}`,
+			format: BridgeDetailFormat.Text,
+		},
+		{
+			key: "installed",
+			label: {
+				ar: "النسخة المركّبة",
+				en: "Installed version",
+			},
+			value: `${health.installedChannel === null ? "—" : CHANNEL_LABELS[health.installedChannel]} · ${health.build ?? "—"}`,
+			format: BridgeDetailFormat.Text,
+		},
+		{
+			key: "contentErrors",
+			label: {
+				ar: "أخطاء الأدونات الأخيرة في الكونسول",
+				en: "Recent content errors in console",
+			},
+			value: health.contentErrors,
 			format: BridgeDetailFormat.Text,
 		},
 		{
@@ -162,18 +213,11 @@ const stats = (context: Bridge.Context, health: BedrockHealth): Bridge.DetailSta
 
 export const status: Bridge.Detail = {
 	kind: BridgeKind.Detail,
-	requiresRunning: true,
+	requiresRunning: false,
 	refreshSeconds: REFRESH_SECONDS,
 
 	async read(context) {
-		const live = await sample(context);
-		const current = live ?? stored;
-
-		if (current === null) {
-			return null;
-		}
-
-		stored = current;
+		const current = await sample(context);
 
 		return {
 			id: "status",
@@ -182,8 +226,8 @@ export const status: Bridge.Detail = {
 				en: "Server status",
 			},
 			subtitle: {
-				ar: "هذي أرقام سيرفرك نفسه، مو تقدير.",
-				en: "these numbers come from your own server, not an estimate",
+				ar: "حالة الاتصال والنسخة المختارة والمركّبة. الأرقام الفارغة ما وصلنا لها رد.",
+				en: "Connection status and selected versus installed builds. Blank live values mean no response.",
 			},
 			description:
 				current.motd === null
@@ -196,7 +240,7 @@ export const status: Bridge.Detail = {
 			badges: badges(current),
 			stats: stats(context, current),
 			links: [],
-			stale: live === null,
+			stale: context.server.running && !current.reachable,
 			actions: [],
 		};
 	},

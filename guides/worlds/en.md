@@ -1,32 +1,27 @@
-## Everything lives in one database
+## Create, switch and copy worlds
 
-On Bedrock the Overworld, the Nether and the End are all stored in a single database inside the world folder. That means two things:
+Open **Worlds** to create a named world with an optional seed, upload a `.mcworld`, or switch between existing worlds. A new world generates when the server starts. The seed only affects a world that has not generated yet.
 
-- There is no way to reset the Nether or the End on their own. If you came from Java looking for that button, it does not exist — and not because we skipped it.
-- Editing world files while the server runs corrupts the save. Always stop the server first.
+World changes run as protected operations. The panel makes a recovery backup, stops the server before changing files, and resumes it if it was running. A failed backup stops the change. Keep the operation open until it finishes.
 
-> [!danger]
-> Never edit or delete anything inside the `db` folder. That is the database itself, and touching it takes the whole world with it.
+**Clone world** makes an independent copy with a new name. It keeps the original world and its player progress. Shared add-ons remain shared, so check the add-on list before changing them.
 
-## Uploading a world from your phone
+## Take a world back to Bedrock
 
-You can export your world from the game as a `.mcworld` file and upload it straight here:
+Choose **Export to Files**. After the operation completes, download the `.mcworld` from the `exports` folder in **Files** and open it in Minecraft Bedrock. Exporting again replaces that world's previous export. Delete old exports when you no longer need them.
 
-1. In game, open the world's settings.
-2. Choose **Export World** and you get a `.mcworld` file.
-3. Upload it from the worlds tab.
+The export includes the world's files, embedded packs and the exact shared pack versions its activation files reference. A missing pack stops export so you do not receive a world with broken add-on references.
 
-Once it is up, activate it and restart the server to play on it.
+## Upload a world
 
-> [!note]
-> On Bedrock the folder name and the world name are not the same thing. A world exported from a phone can land in a folder with a strange string for a name, while the name you see is the one you typed in game.
+1. Export your world from Minecraft Bedrock as a `.mcworld` file.
+2. Upload it from **Worlds**.
+3. Activate it to play on it. An existing world with the same folder name is kept; rename the upload if needed.
 
-## Java worlds do not work
+Serverk does not convert Java worlds into Bedrock worlds. Upload a Bedrock export. Archives with unsafe paths, unsupported links or excessive expanded size are rejected before installation.
 
-If you upload a Java world we refuse it. The two formats are completely different and there is no way to convert between them. You need a world exported from Minecraft Bedrock.
+## Protect your progress
 
-## Backups
+The Overworld, Nether and End share one LevelDB database. This panel does not reset individual Bedrock dimensions. Never edit the `db` directory by hand.
 
-A backup is your only way back if something happens to your world. We take them while the server runs: we pause saving for a moment, take the copy, and resume — nobody notices.
-
-Take one before anything big: before deleting a world, before installing an add-on, and before switching to the preview build.
+Recovery backups protect changes; keep regular backups too. Live backups use Bedrock's fresh save report and copy the reported file boundaries before resuming saving. If the server cannot provide a consistent copy, the backup fails instead of pretending an unsafe copy succeeded.

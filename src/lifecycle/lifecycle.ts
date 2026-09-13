@@ -1,6 +1,5 @@
 import { type Bridge, BridgeKind } from "@serverkgg/bridge";
 import { BridgeEventName } from "@serverkgg/bridge/protocol";
-import { resumeStaleHold } from "../backup";
 import { SERVER_BINARY, SERVER_STARTED, stopWatchingRoster, watchRoster } from "../shared";
 
 const STOP_TIMEOUT_SECONDS = 120;
@@ -23,8 +22,6 @@ export const lifecycle: Bridge.Lifecycle = {
 	async onReady(context) {
 		stopWatchingRoster();
 		watchRoster(context);
-
-		await resumeStaleHold(context);
 	},
 
 	async stop(context) {

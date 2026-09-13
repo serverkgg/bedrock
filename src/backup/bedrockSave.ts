@@ -1,67 +1,124 @@
 import type { Bridge } from "@serverkgg/bridge";
-import { SAVE_HOLD_ACK, SAVE_PENDING, SAVE_RESUMED, send, WORLD_SAVED } from "../shared";
+import { SAVE_HOLD_ACK, SAVE_PENDING, SAVE_RESUMED, send, WORLD_SAVED, withoutLogPrefix, worldPath } from "../shared";
+import { activeWorld } from "../worlds";
 
 const READY_TIMEOUT_MS = 60_000;
-
 const POLL_INTERVAL_MS = 500;
-
 const RESUME_TIMEOUT_MS = 10_000;
+let held = false;
+export const holding = () => held;
 
-export const STALE_HOLD_MS = 120_000;
-
-let holdingSince: number | null = null;
-
-export const holding = () => holdingSince !== null;
+export const parseSaveFiles = (
+	line: string,
+	world: string,
+): {
+	path: string;
+	size: number;
+}[] => {
+	const root = worldPath(world);
+	return withoutLogPrefix(line)
+		.split(",")
+		.map((entry) => {
+			const match = entry.trim().match(/^(.+):(\d+)$/);
+			if (!match) {
+				throw new Error("Bedrock returned an invalid backup file list");
+			}
+			const source = match[1] ?? "";
+			const path = source.startsWith("worlds/") ? source : `worlds/${source}`;
+			const size = Number(match[2]);
+			if (
+				!path.startsWith(`${root}/`)
+				|| path.includes("\\")
+				|| path.split("/").some((part) => part === ".." || part === "." || part.length === 0)
+				|| !Number.isSafeInteger(size)
+			) {
+				throw new Error("Bedrock returned an unsafe backup file boundary");
+			}
+			return {
+				path,
+				size,
+			};
+		});
+};
 
 export const holdSave = async (context: Bridge.Context) => {
+	if (held) {
+		throw new Error("a backup already owns the world save hold");
+	}
+	held = true;
 	await send(context, "save hold", SAVE_HOLD_ACK);
-
-	holdingSince = Date.now();
-
+	const world = await activeWorld(context);
 	const deadline = Date.now() + READY_TIMEOUT_MS;
-
-	for (;;) {
-		await send(context, "save query");
-
-		const printed = (await context.logs.tail(12)).join("\n");
-
-		if (WORLD_SAVED.test(printed)) {
+	let ready = false;
+	const files = new Map<
+		string,
+		{
+			path: string;
+			size: number;
+		}
+	>();
+	let invalid: Error | null = null;
+	const unsubscribe = context.logs.follow(/.+/, (match) => {
+		const line = match[0];
+		if (WORLD_SAVED.test(line)) {
+			ready = true;
 			return;
 		}
-
-		if (Date.now() >= deadline) {
-			throw new Error("bedrock never reported the world ready to copy");
+		if (!ready || !/:\d+(?:,|$)/.test(line.trim())) {
+			return;
 		}
-
-		if (!SAVE_PENDING.test(printed)) {
-			context.log("waiting for bedrock to finish preparing the world");
+		try {
+			for (const file of parseSaveFiles(line, world)) {
+				files.set(file.path, file);
+			}
+		} catch (error) {
+			invalid = error instanceof Error ? error : new Error(String(error));
 		}
-
-		await Bun.sleep(POLL_INTERVAL_MS);
+	});
+	try {
+		while (Date.now() < deadline) {
+			await send(context, "save query", new RegExp(`${WORLD_SAVED.source}|${SAVE_PENDING.source}`));
+			await Bun.sleep(POLL_INTERVAL_MS);
+			if (invalid !== null) {
+				throw invalid;
+			}
+			if (ready && files.size > 0) {
+				const root = worldPath(world);
+				for (const entry of await context.files.list("**/*", {
+					directory: root,
+				})) {
+					if (
+						!entry.directory
+						&& entry.path.startsWith(`${root}/`)
+						&& !entry.path.startsWith(`${root}/db/`)
+						&& !files.has(entry.path)
+					) {
+						files.set(entry.path, {
+							path: entry.path,
+							size: entry.sizeBytes,
+						});
+					}
+				}
+				return {
+					roots: [
+						worldPath(world),
+					],
+					files: [
+						...files.values(),
+					],
+				};
+			}
+		}
+		throw new Error("Bedrock did not return a fresh backup file list");
+	} finally {
+		unsubscribe();
 	}
 };
 
 export const resumeSave = async (context: Bridge.Context) => {
-	try {
-		await context.command("save resume", {
-			expect: SAVE_RESUMED,
-			timeoutMs: RESUME_TIMEOUT_MS,
-		});
-	} catch (error) {
-		context.log.warn("could not confirm that saving resumed", {
-			reason: error instanceof Error ? error.message : String(error),
-		});
-	} finally {
-		holdingSince = null;
-	}
-};
-
-export const resumeStaleHold = async (context: Bridge.Context) => {
-	if (holdingSince === null || Date.now() - holdingSince < STALE_HOLD_MS) {
-		return;
-	}
-
-	context.log.warn("a world hold outlived its backup, resuming saves so writes stop queueing in memory");
-
-	await resumeSave(context);
+	await context.command("save resume", {
+		expect: SAVE_RESUMED,
+		timeoutMs: RESUME_TIMEOUT_MS,
+	});
+	held = false;
 };

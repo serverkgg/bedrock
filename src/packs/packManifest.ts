@@ -14,6 +14,12 @@ export interface PackVersion {
 	text: string;
 }
 
+export interface PackDependency {
+	uuid: string | null;
+	module: string | null;
+	version: PackVersion | null;
+}
+
 export interface PackManifest {
 	uuid: string;
 	nameKey: string;
@@ -21,6 +27,9 @@ export interface PackManifest {
 	version: PackVersion;
 	kind: PackKind;
 	dependencies: string[];
+	requirements: PackDependency[];
+	minEngineVersion: PackVersion | null;
+	scripted: boolean;
 }
 
 const BEHAVIOR_MODULES = [
@@ -34,7 +43,7 @@ const RESOURCE_MODULES = [
 ];
 
 const numbersOf = (value: unknown): PackVersion["parts"] | null => {
-	if (!Array.isArray(value)) {
+	if (!Array.isArray(value) || value.length !== 3) {
 		return null;
 	}
 
@@ -46,7 +55,13 @@ const numbersOf = (value: unknown): PackVersion["parts"] | null => {
 		return null;
 	}
 
-	if (!Number.isFinite(major) || !Number.isFinite(minor) || !Number.isFinite(patch)) {
+	if (
+		![
+			major,
+			minor,
+			patch,
+		].every((part) => Number.isSafeInteger(part) && part >= 0)
+	) {
 		return null;
 	}
 
@@ -72,13 +87,16 @@ export const parsePackVersion = (value: unknown): PackVersion | null => {
 	}
 
 	const text = value.trim();
+	if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(text)) {
+		return null;
+	}
 	const numbers = text
 		.split("-")
 		.at(0)
 		?.split(".")
 		.map((entry) => Number.parseInt(entry, 10));
 
-	if (numbers === undefined || numbers.some((entry) => !Number.isFinite(entry))) {
+	if (numbers === undefined || numbers.some((entry) => !Number.isSafeInteger(entry))) {
 		return null;
 	}
 
@@ -118,12 +136,15 @@ interface RawManifest {
 		name?: unknown;
 		description?: unknown;
 		version?: unknown;
+		min_engine_version?: unknown;
 	};
 	modules?: {
 		type?: unknown;
 	}[];
 	dependencies?: {
 		uuid?: unknown;
+		module_name?: unknown;
+		version?: unknown;
 	}[];
 }
 
@@ -136,10 +157,17 @@ export const parsePackManifest = (text: string): PackManifest | null => {
 		return null;
 	}
 
+	if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+		return null;
+	}
 	const uuid = raw.header?.uuid;
 	const version = parsePackVersion(raw.header?.version);
 
-	if (typeof uuid !== "string" || uuid.length === 0 || version === null) {
+	if (
+		typeof uuid !== "string"
+		|| !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)
+		|| version === null
+	) {
 		return null;
 	}
 
@@ -159,6 +187,13 @@ export const parsePackManifest = (text: string): PackManifest | null => {
 		descriptionKey: typeof raw.header?.description === "string" ? raw.header.description : "",
 		version,
 		kind,
+		minEngineVersion: parsePackVersion(raw.header?.min_engine_version),
+		scripted: moduleTypes.includes("script"),
+		requirements: (Array.isArray(raw.dependencies) ? raw.dependencies : []).map((entry) => ({
+			uuid: typeof entry?.uuid === "string" ? entry.uuid : null,
+			module: typeof entry?.module_name === "string" ? entry.module_name : null,
+			version: parsePackVersion(entry?.version),
+		})),
 		dependencies: (Array.isArray(raw.dependencies) ? raw.dependencies : [])
 			.map((entry) => entry?.uuid)
 			.filter((uuid): uuid is string => typeof uuid === "string" && uuid.length > 0),

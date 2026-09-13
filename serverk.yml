@@ -51,6 +51,8 @@ container:
 
 backup:
   only:
+    - config/**
+    - .serverk-install.json
     - worlds/**
     - server.properties
     - allowlist.json
@@ -116,6 +118,10 @@ presence:
 
 files:
   protected:
+    - .serverk-transaction.json
+    - .serverk-recovery-files/**
+    - .serverk-world-clone/**
+    - .serverk-world-export/**
     - bedrock_server
     - "*.so"
     - libMinecraft.Server.Lib.a

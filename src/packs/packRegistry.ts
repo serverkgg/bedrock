@@ -1,5 +1,5 @@
-import type { Bridge } from "@serverkgg/bridge";
-import { readJsonList, worldPath, writeJsonList } from "../shared";
+import { type Bridge, BridgeUserError } from "@serverkgg/bridge";
+import { worldPath, writeJsonList } from "../shared";
 import { PackKind } from "./packManifest";
 
 export interface WorldPackEntry {
@@ -85,7 +85,36 @@ export const movePackEntry = (entries: WorldPackEntry[], uuid: string, delta: -1
 };
 
 export const readWorldPacks = async (context: Bridge.Context, world: string, kind: PackKind) => {
-	return normalizeWorldPacks(await readJsonList(context, worldPackFile(world, kind)));
+	const path = worldPackFile(world, kind);
+	if (!(await context.files.exists(path))) {
+		return [];
+	}
+	try {
+		const raw: unknown = JSON.parse(await context.files.read(path));
+		if (!Array.isArray(raw)) {
+			throw new Error("invalid registry");
+		}
+		const entries = normalizeWorldPacks(raw);
+		if (
+			entries.length !== raw.length
+			|| raw.some(
+				(entry) =>
+					!Array.isArray(entry?.version)
+					|| entry.version.length !== 3
+					|| !entry.version.every(
+						(part: unknown) => typeof part === "number" && Number.isSafeInteger(part) && part >= 0,
+					),
+			)
+		) {
+			throw new Error("invalid registry entry");
+		}
+		return entries;
+	} catch {
+		throw new BridgeUserError({
+			ar: `ملف الأدونات ${path} مو سليم. أصلحه من الملفات أو استرجع نسخة احتياطية قبل التعديل.`,
+			en: `The pack registry ${path} is invalid. Repair it in Files or restore a backup before changing packs.`,
+		});
+	}
 };
 
 export const writeWorldPacks = async (

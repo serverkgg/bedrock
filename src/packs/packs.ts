@@ -1,16 +1,26 @@
 import { type Bridge, BridgeKind, BridgeUserError } from "@serverkgg/bridge";
-import { isUnder, nameOf, PACK_STAGING, relativeUploadPath, withoutExtension } from "../shared";
+import { isUnder, nameOf, PACK_STAGING, relativeUploadPath, requireStopped, withoutExtension } from "../shared";
 import { activeWorld } from "../worlds";
+import { manifestFor, packWorlds } from "./packCompatibility";
+import { inventoryPacks } from "./packDiscovery";
 import { installPackSource } from "./packInstall";
 import { PackKind } from "./packManifest";
-import { movePackEntry, readWorldPacks, withPackActivated, withPackDeactivated, writeWorldPacks } from "./packRegistry";
-import { readPackSidecar, writePackSidecar } from "./packSidecar";
+import { removePacks, setPacksEnabled } from "./packMutation";
+import { movePackEntry, readWorldPacks, writeWorldPacks } from "./packRegistry";
 
 export const packs: Bridge.Collection = {
 	kind: BridgeKind.Collection,
+	protectedActions: [
+		"add",
+		"enable",
+		"disable",
+		"moveUp",
+		"moveDown",
+		"remove",
+	],
 
 	async list(context) {
-		const sidecar = await readPackSidecar(context);
+		const sidecar = await inventoryPacks(context);
 		const world = await activeWorld(context);
 		const active = new Map<PackKind, string[]>();
 
@@ -24,18 +34,29 @@ export const packs: Bridge.Collection = {
 			);
 		}
 
-		return Object.values(sidecar.packs).map((pack) => {
-			const listed = active.get(pack.kind) ?? [];
+		return await Promise.all(
+			Object.values(sidecar.packs).map(async (pack) => {
+				const listed = active.get(pack.kind) ?? [];
 
-			return {
-				id: pack.uuid,
-				name: pack.title,
-				kind: pack.kind === PackKind.Behavior ? "سلوك / Behavior" : "مظهر / Resource",
-				version: pack.versionText,
-				enabled: listed.includes(pack.uuid) ? "✓" : "",
-				order: String(listed.indexOf(pack.uuid) + 1),
-			};
-		});
+				return {
+					id: pack.uuid,
+					name: pack.title,
+					kind: pack.kind === PackKind.Behavior ? "سلوك / Behavior" : "مظهر / Resource",
+					version: pack.versionText,
+					enabled: listed.includes(pack.uuid) ? "✓" : "",
+					order: String(listed.indexOf(pack.uuid) + 1),
+					worlds: (await packWorlds(context, pack)).join(", "),
+					requirements:
+						(await manifestFor(context, pack))?.requirements
+							.map((entry) => `${entry.uuid ?? entry.module} ${entry.version?.text ?? ""}`)
+							.join(", ") ?? "—",
+					load:
+						(await manifestFor(context, pack)) === null
+							? "Missing files / ملفات ناقصة"
+							: "Installed · load unverified / مركّب · التشغيل غير مؤكّد",
+				};
+			}),
+		);
 	},
 
 	async add(context, input) {
@@ -56,52 +77,22 @@ export const packs: Bridge.Collection = {
 
 	actions: {
 		async enable(context, row) {
-			const sidecar = await readPackSidecar(context);
-			const pack = sidecar.packs[String(row.id)];
-
-			if (pack === undefined) {
-				return;
-			}
-
-			const world = await activeWorld(context);
-			const entries = await readWorldPacks(context, world, pack.kind);
-
-			await writeWorldPacks(
+			await setPacksEnabled(
 				context,
-				world,
-				pack.kind,
-				withPackActivated(
-					entries,
-					{
-						pack_id: pack.uuid,
-						version: pack.version,
-					},
-					pack.order,
-				),
+				[
+					String(row.id),
+				],
+				true,
 			);
 		},
-
 		async disable(context, row) {
-			const sidecar = await readPackSidecar(context);
-			const pack = sidecar.packs[String(row.id)];
-
-			if (pack === undefined) {
-				return;
-			}
-
-			const world = await activeWorld(context);
-			const entries = await readWorldPacks(context, world, pack.kind);
-
-			sidecar.packs[pack.uuid] = {
-				...pack,
-				order: Math.max(
-					0,
-					entries.findIndex((entry) => entry.pack_id === pack.uuid),
-				),
-			};
-
-			await writePackSidecar(context, sidecar);
-			await writeWorldPacks(context, world, pack.kind, withPackDeactivated(entries, pack.uuid));
+			await setPacksEnabled(
+				context,
+				[
+					String(row.id),
+				],
+				false,
+			);
 		},
 
 		async moveUp(context, row) {
@@ -113,32 +104,16 @@ export const packs: Bridge.Collection = {
 		},
 
 		async remove(context, row) {
-			const sidecar = await readPackSidecar(context);
-			const pack = sidecar.packs[String(row.id)];
-
-			if (pack === undefined) {
-				return;
-			}
-
-			const world = await activeWorld(context);
-			const entries = await readWorldPacks(context, world, pack.kind);
-
-			await writeWorldPacks(context, world, pack.kind, withPackDeactivated(entries, pack.uuid));
-			await context.files.remove(pack.folder);
-
-			delete sidecar.packs[pack.uuid];
-
-			await writePackSidecar(context, sidecar);
-
-			context.log("removed an add-on", {
-				title: pack.title,
-			});
+			await removePacks(context, [
+				String(row.id),
+			]);
 		},
 	},
 };
 
 const reorder = async (context: Bridge.Context, uuid: string, delta: -1 | 1) => {
-	const sidecar = await readPackSidecar(context);
+	requireStopped(context);
+	const sidecar = await inventoryPacks(context);
 	const pack = sidecar.packs[uuid];
 
 	if (pack === undefined) {

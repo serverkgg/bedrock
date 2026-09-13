@@ -78,3 +78,24 @@ describe("reading the install stamp back", () => {
 		]);
 	});
 });
+
+describe("resolving the installed build after restart or restore", () => {
+	test("keeps an exact installed version when the selection is automatic", async () => {
+		const { selectedInstallVersion } = await import("./install");
+		const stamp = normalizeStamp({
+			channel: "release",
+			version: "1.26.45.1",
+		});
+		expect(selectedInstallVersion(null, ReleaseChannel.Release, stamp)).toBe("1.26.45.1");
+	});
+	test("only chooses latest for first install or a different channel", async () => {
+		const { selectedInstallVersion } = await import("./install");
+		const stamp = normalizeStamp({
+			channel: "release",
+			version: "1.26.45.1",
+		});
+		expect(selectedInstallVersion(null, ReleaseChannel.Preview, stamp)).toBeNull();
+		expect(selectedInstallVersion(null, ReleaseChannel.Release, null)).toBeNull();
+		expect(selectedInstallVersion("1.26.46.1", ReleaseChannel.Release, stamp)).toBe("1.26.46.1");
+	});
+});

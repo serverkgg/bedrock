@@ -1,12 +1,21 @@
 import { type Bridge, BridgeUserError } from "@serverkgg/bridge";
-import { BridgeEventName } from "@serverkgg/bridge/protocol";
-import { BEHAVIOR_PACKS_DIRECTORY, PACK_STAGING, RESOURCE_PACKS_DIRECTORY } from "../shared";
+import {
+	BEHAVIOR_PACKS_DIRECTORY,
+	PACK_SIDECAR_FILE,
+	PACK_STAGING,
+	publishFiles,
+	RESOURCE_PACKS_DIRECTORY,
+	recoverFileTransaction,
+	requireStopped,
+} from "../shared";
 import { activeWorld } from "../worlds";
 import { discoverPacks, unpackArchive } from "./packArchive";
+import { activationOrder, assertCompatible, manifestFor, packWorlds, safePackFolder } from "./packCompatibility";
+import { inventoryPacks } from "./packDiscovery";
 import { resolvePackText } from "./packLang";
 import { PackKind } from "./packManifest";
-import { readWorldPacks, withPackActivated, writeWorldPacks } from "./packRegistry";
-import { type PackRecord, readPackSidecar, writePackSidecar } from "./packSidecar";
+import { readWorldPacks, withPackActivated, worldPackFile } from "./packRegistry";
+import type { PackRecord } from "./packSidecar";
 
 const UNSAFE_CHARACTERS = /[^\p{L}\p{N}._-]+/gu;
 
@@ -21,7 +30,7 @@ export const packDirectory = (kind: PackKind) => {
 export const packFolderName = (title: string, uuid: string) => {
 	const slug = title.replace(UNSAFE_CHARACTERS, "-").slice(0, TITLE_LIMIT).replace(EDGE_CHARACTERS, "");
 
-	return `${slug.length === 0 ? "pack" : slug}-${uuid.slice(0, 8)}`;
+	return `${slug.length === 0 ? "pack" : slug}-${uuid.replace(/[^a-zA-Z0-9-]/g, "")}`;
 };
 
 export const worldTemplateRejected = new BridgeUserError({
@@ -45,6 +54,8 @@ export interface PackSource {
 }
 
 export const installPackSource = async (context: Bridge.Context, source: PackSource): Promise<PackRecord[]> => {
+	requireStopped(context);
+	await recoverFileTransaction(context);
 	const unpacked = `${PACK_STAGING}/unpacked`;
 
 	await unpackArchive(context, source.archive, unpacked);
@@ -59,9 +70,34 @@ export const installPackSource = async (context: Bridge.Context, source: PackSou
 		throw worldTemplateRejected;
 	}
 
-	const sidecar = await readPackSidecar(context);
+	const sidecar = await inventoryPacks(context);
 	const world = await activeWorld(context);
 	const installed: PackRecord[] = [];
+	const candidateIds = new Set(found.map((pack) => pack.manifest.uuid));
+	if (candidateIds.size !== found.length) {
+		throw new BridgeUserError({
+			ar: "الملف فيه أكثر من أدون بنفس المعرّف. ارفع نسخة وحدة من كل أدون.",
+			en: "The archive contains duplicate pack identities. Include one version of each pack.",
+		});
+	}
+	const existing = await Promise.all(
+		Object.values(sidecar.packs)
+			.filter((pack) => !candidateIds.has(pack.uuid) && pack.dependencies.some((id) => candidateIds.has(id)))
+			.map((pack) => manifestFor(context, pack)),
+	);
+	await assertCompatible(
+		context,
+		[
+			...found.map((pack) => pack.manifest),
+			...existing.filter((manifest) => manifest !== null),
+		],
+		sidecar.packs,
+	);
+	const replacements: {
+		source: string;
+		destination: string;
+	}[] = [];
+	const removed: string[] = [];
 
 	for (const pack of found) {
 		if (pack.manifest.kind !== PackKind.Behavior && pack.manifest.kind !== PackKind.Resource) {
@@ -75,14 +111,35 @@ export const installPackSource = async (context: Bridge.Context, source: PackSou
 
 		const title = await resolvePackText(context, pack.directory, pack.manifest.nameKey, source.bundle);
 		const previous = sidecar.packs[pack.manifest.uuid];
-		const folder = `${packDirectory(pack.manifest.kind)}/${packFolderName(title, pack.manifest.uuid)}`;
-
-		if (previous !== undefined && previous.folder !== folder && (await context.files.exists(previous.folder))) {
-			await context.files.remove(previous.folder);
+		if (
+			previous !== undefined
+			&& previous.versionText !== pack.manifest.version.text
+			&& (await packWorlds(context, previous)).some((used) => used !== world)
+		) {
+			throw new BridgeUserError({
+				ar: "هذا الأدون مستخدم في ماب ثانية. فك ارتباطه منها قبل تغيير نسخته.",
+				en: "Another world uses this pack. Remove that world’s reference before changing its version.",
+			});
 		}
+		if (previous !== undefined && previous.kind !== pack.manifest.kind) {
+			throw new BridgeUserError({
+				ar: "نوع الأدون تغيّر بنفس المعرّف. احذف النسخة القديمة بعد مراجعة متطلباتها قبل تركيب النوع الجديد.",
+				en: "This pack changed type under the same identity. Review dependencies and remove the old pack before installing the new type.",
+			});
+		}
+		const scope = previous?.folder.startsWith("worlds/") ? `worlds/${world}/` : "";
+		const folder = `${scope}${packDirectory(pack.manifest.kind)}/${packFolderName(title, pack.manifest.uuid)}`;
 
-		await context.files.remove(folder);
-		await context.files.move(pack.directory, folder);
+		if (previous !== undefined && previous.folder !== folder) {
+			if (!safePackFolder(previous.folder)) {
+				throw new Error("invalid previous pack folder");
+			}
+			removed.push(previous.folder);
+		}
+		replacements.push({
+			source: pack.directory,
+			destination: folder,
+		});
 
 		const record: PackRecord = {
 			uuid: pack.manifest.uuid,
@@ -108,26 +165,54 @@ export const installPackSource = async (context: Bridge.Context, source: PackSou
 
 	sidecar.world = world;
 
-	await writePackSidecar(context, sidecar);
-
-	for (const record of installed) {
-		const entries = await readWorldPacks(context, world, record.kind);
-
-		await writeWorldPacks(
-			context,
-			world,
-			record.kind,
-			withPackActivated(entries, {
-				pack_id: record.uuid,
-				version: record.version,
-			}),
-		);
-
-		context.emit(BridgeEventName.ModLoaded, {
-			mod: record.title,
-			version: record.versionText,
+	if (installed.length === 0) {
+		throw noManifest;
+	}
+	const sidecarStage = `${PACK_STAGING}/next-sidecar.json`;
+	await context.files.write(sidecarStage, JSON.stringify(sidecar));
+	replacements.push({
+		source: sidecarStage,
+		destination: PACK_SIDECAR_FILE,
+	});
+	const activated = activationOrder(
+		installed.map((pack) => pack.uuid),
+		sidecar.packs,
+	);
+	const dependencyManifests = await Promise.all(
+		activated.filter((pack) => !candidateIds.has(pack.uuid)).map((pack) => manifestFor(context, pack)),
+	);
+	await assertCompatible(
+		context,
+		[
+			...found.map((pack) => pack.manifest),
+			...dependencyManifests.filter((manifest) => manifest !== null),
+		],
+		sidecar.packs,
+	);
+	for (const kind of [
+		PackKind.Behavior,
+		PackKind.Resource,
+	]) {
+		let entries = await readWorldPacks(context, world, kind);
+		for (const record of activated.filter((pack) => pack.kind === kind)) {
+			const index = entries.findIndex((entry) => entry.pack_id === record.uuid);
+			entries = withPackActivated(
+				entries,
+				{
+					pack_id: record.uuid,
+					version: record.version,
+				},
+				index < 0 ? undefined : index,
+			);
+		}
+		const stage = `${PACK_STAGING}/next-${kind}.json`;
+		await context.files.write(stage, JSON.stringify(entries));
+		replacements.push({
+			source: stage,
+			destination: worldPackFile(world, kind),
 		});
 	}
+	await publishFiles(context, replacements, removed);
 
 	await context.files.remove(PACK_STAGING);
 

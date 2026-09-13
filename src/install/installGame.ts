@@ -1,4 +1,5 @@
 import type { Bridge } from "@serverkgg/bridge";
+import { INSTALL_STAMP_FILE, writeStamp } from "@serverkgg/bridge/install";
 import { execDetail } from "@serverkgg/bridge/utils";
 import {
 	ALLOWLIST_FILE,
@@ -6,6 +7,7 @@ import {
 	CONFIG_FILE,
 	DOWNLOAD_STAGING,
 	PERMISSIONS_FILE,
+	publishFiles,
 	RESOURCE_PACKS_DIRECTORY,
 	SERVER_BINARY,
 	WORLDS_DIRECTORY,
@@ -14,11 +16,7 @@ import type { Release } from "./releases";
 
 const DOWNLOAD_TIMEOUT_MS = 1_800_000;
 
-const UNZIP_TIMEOUT_MS = 900_000;
-
-const INVENTORY_TIMEOUT_MS = 120_000;
-
-export const PRESERVE_ON_UPDATE = [
+export const PRESERVE_ON_UPDATE: string[] = [
 	WORLDS_DIRECTORY,
 	CONFIG_FILE,
 	ALLOWLIST_FILE,
@@ -29,6 +27,7 @@ export const PRESERVE_ON_UPDATE = [
 	"development_resource_packs",
 	"development_skin_packs",
 	"world_templates",
+	"config",
 ];
 
 const EXTRACT_EXCLUDES = [
@@ -77,32 +76,11 @@ export interface UnpackedArchive {
 	packs: string[];
 }
 
-const inventory = async (context: Bridge.Context, archive: string) => {
-	const listed = await context.exec(
-		[
-			"unzip",
-			"-Z1",
-			archive,
-		],
-		{
-			timeoutMs: INVENTORY_TIMEOUT_MS,
-		},
-	);
-
-	if (listed.code !== 0) {
-		throw new Error(`the bedrock archive could not be read — ${execDetail(listed)}`);
-	}
-
-	return listed.stdout
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0);
-};
-
 export const installGame = async (
 	context: Bridge.Context,
 	release: Release,
 	stale: string[],
+	previousPacks: string[] = [],
 ): Promise<UnpackedArchive> => {
 	const archive = `${DOWNLOAD_STAGING}/bedrock-server-${release.version}.zip`;
 
@@ -118,57 +96,64 @@ export const installGame = async (
 		timeoutMs: DOWNLOAD_TIMEOUT_MS,
 	});
 
-	const entries = await inventory(context, archive);
-	const files = topLevelOf(entries);
-	const packs = vanillaPacksOf(entries);
-
-	context.log("unpacking the bedrock dedicated server", {
-		version: release.version,
-		entries: entries.length,
-		top: files.join(", "),
+	const staged = `${DOWNLOAD_STAGING}/unpacked`;
+	const entries = await context.files.extract(archive, staged, {
+		tree: true,
+		maxEntryBytes: 512 * 1024 * 1024,
+		exclude: EXTRACT_EXCLUDES,
 	});
-
-	for (const name of stale) {
-		if (!PRESERVE_ON_UPDATE.includes(name) && (await context.files.exists(name))) {
-			await context.files.remove(name);
-		}
+	const relative = entries.map((entry) => (entry.startsWith(`${staged}/`) ? entry.slice(staged.length + 1) : entry));
+	const files = topLevelOf(relative);
+	const packs = vanillaPacksOf(relative);
+	if (!(await context.files.exists(`${staged}/${SERVER_BINARY}`))) {
+		throw new Error("the Bedrock archive carried no server binary");
 	}
-
-	const unpacked = await context.exec(
-		[
-			"unzip",
-			"-o",
-			"-q",
-			archive,
-			"-d",
-			".",
-			"-x",
-			...EXTRACT_EXCLUDES,
-		],
-		{
-			timeoutMs: UNZIP_TIMEOUT_MS,
-		},
-	);
-
-	if (unpacked.code !== 0) {
-		throw new Error(`the bedrock archive could not be unpacked — ${execDetail(unpacked)}`);
-	}
-
 	const marked = await context.exec([
 		"chmod",
 		"+x",
-		SERVER_BINARY,
+		`${staged}/${SERVER_BINARY}`,
+	]);
+	if (marked.code !== 0) {
+		throw new Error(`could not mark the server executable: ${execDetail(marked)}`);
+	}
+	const roots = files.filter((name) => !PRESERVE_ON_UPDATE.includes(name));
+	const replacements = [
+		...roots,
+		...packs,
+	].map((destination) => ({
+		source: `${staged}/${destination}`,
+		destination,
+	}));
+	for (const path of relative.filter((entry) => entry.startsWith("config/"))) {
+		if (!(await context.files.exists(path))) {
+			replacements.push({
+				source: `${staged}/${path}`,
+				destination: path,
+			});
+		}
+	}
+	const stagedStamp = `${DOWNLOAD_STAGING}/next-stamp.json`;
+	await writeStamp(
+		context,
+		{
+			channel: release.channel,
+			version: release.version,
+			label: release.label,
+			files,
+			packs,
+		},
+		stagedStamp,
+	);
+	replacements.push({
+		source: stagedStamp,
+		destination: INSTALL_STAMP_FILE,
+	});
+	await publishFiles(context, replacements, [
+		...stale.filter((name) => !PRESERVE_ON_UPDATE.includes(name) && !roots.includes(name)),
+		...previousPacks.filter((pack) => !packs.includes(pack)),
 	]);
 
-	if (marked.code !== 0) {
-		throw new Error(`the bedrock server binary could not be marked executable — ${execDetail(marked)}`);
-	}
-
 	await context.files.remove(DOWNLOAD_STAGING);
-
-	if (!(await gameInstalled(context))) {
-		throw new Error("the bedrock archive carried no server binary");
-	}
 
 	return {
 		files,
