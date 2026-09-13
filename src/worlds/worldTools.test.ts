@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Bridge } from "@serverkgg/bridge";
-import { existingWorld, validateWorldFolder, worldTools } from "./worldTools";
+import { existingWorld, exportWorld, validateWorldFolder, worldTools } from "./worldTools";
 
 describe("safe world tools", () => {
 	test("rejects separators and traversal while keeping existing world names with spaces", () => {
@@ -66,5 +66,97 @@ describe("safe world tools", () => {
 				name: "new",
 			}),
 		).rejects.toThrow();
+	});
+	test("exports a world by listing only its own pack folders and the server pack folders", async () => {
+		const uuid = "8f3a1b2c-0000-0000-0000-000000000001";
+		const files: Record<string, string> = {
+			"worlds/real/world_behavior_packs.json": JSON.stringify([
+				{
+					pack_id: uuid,
+					version: [
+						1,
+						0,
+						0,
+					],
+				},
+			]),
+			"behavior_packs/Cool/manifest.json": JSON.stringify({
+				header: {
+					uuid,
+					name: "Cool",
+					version: [
+						1,
+						0,
+						0,
+					],
+				},
+				modules: [
+					{
+						type: "data",
+					},
+				],
+			}),
+		};
+		const listed: (string | undefined)[] = [];
+		const commands: string[][] = [];
+		const context = {
+			server: {
+				running: false,
+			},
+			exec: async (argv: string[]) => {
+				commands.push(argv);
+				return {
+					code: 0,
+					stdout: argv.includes("level.dat") ? "worlds/real/level.dat" : "",
+					stderr: "",
+				};
+			},
+			files: {
+				exists: async (path: string) => path in files,
+				read: async (path: string) => files[path] ?? "",
+				write: async () => {},
+				remove: async () => {},
+				ensure: async () => {},
+				move: async () => {},
+				list: async (
+					glob: string,
+					options?: {
+						directory?: string;
+					},
+				) => {
+					listed.push(options?.directory);
+					const directory = options?.directory;
+					if (glob !== "**/manifest.json" || directory === undefined) {
+						throw new Error("unscoped listing");
+					}
+					return Object.keys(files)
+						.filter((path) => path.startsWith(`${directory}/`) && path.endsWith("/manifest.json"))
+						.map((path) => ({
+							path,
+							name: "manifest.json",
+							directory: false,
+							sizeBytes: 0,
+							modifiedAt: "",
+						}));
+				},
+			},
+			log: () => {},
+		} as unknown as Bridge.Context;
+
+		await exportWorld(context, "real");
+
+		expect(listed).toEqual([
+			"worlds/real/behavior_packs",
+			"behavior_packs",
+			"worlds/real/resource_packs",
+			"resource_packs",
+		]);
+		expect(commands).toContainEqual([
+			"cp",
+			"-a",
+			"--",
+			"behavior_packs/Cool",
+			`.serverk-world-export/world/behavior_packs/${uuid}`,
+		]);
 	});
 });

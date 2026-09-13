@@ -1,10 +1,31 @@
 import type { Bridge } from "@serverkgg/bridge";
 import { readInstallStamp } from "../install";
+import { BEHAVIOR_PACKS_DIRECTORY, RESOURCE_PACKS_DIRECTORY, worldPath } from "../shared";
 import { activeWorld } from "../worlds";
 import { safePackFolder } from "./packCompatibility";
 import { resolvePackText } from "./packLang";
 import { PackKind, parsePackManifest } from "./packManifest";
 import { type PackSidecar, readPackSidecar } from "./packSidecar";
+
+const PACK_MANIFEST_GLOB = "**/manifest.json";
+
+const PACK_DIRECTORIES = [
+	BEHAVIOR_PACKS_DIRECTORY,
+	RESOURCE_PACKS_DIRECTORY,
+];
+
+const listableWorld = (folder: string) => folder !== "." && folder !== ".." && !/[\\/]/.test(folder);
+
+export const listPackManifests = async (context: Bridge.Context, directories: string[]) => {
+	const listed = await Promise.all(
+		directories.map((directory) =>
+			context.files.list(PACK_MANIFEST_GLOB, {
+				directory,
+			}),
+		),
+	);
+	return listed.flat();
+};
 
 export const inventoryPacks = async (context: Bridge.Context): Promise<PackSidecar> => {
 	const sidecar = await readPackSidecar(context);
@@ -15,7 +36,10 @@ export const inventoryPacks = async (context: Bridge.Context): Promise<PackSidec
 		}
 	}
 	const vanilla = new Set((await readInstallStamp(context))?.packs ?? []);
-	const entries = await context.files.list("**/manifest.json");
+	const entries = await listPackManifests(context, [
+		...PACK_DIRECTORIES,
+		...(listableWorld(active) ? PACK_DIRECTORIES.map((directory) => `${worldPath(active)}/${directory}`) : []),
+	]);
 	for (const entry of entries) {
 		const folder = entry.path.slice(0, -"/manifest.json".length);
 		if (
@@ -23,9 +47,6 @@ export const inventoryPacks = async (context: Bridge.Context): Promise<PackSidec
 			|| vanilla.has(folder)
 			|| /^(?:behavior_packs|resource_packs)\/(?:vanilla|chemistry|education)/.test(folder)
 		) {
-			continue;
-		}
-		if (folder.startsWith("worlds/") && !folder.startsWith(`worlds/${active}/`)) {
 			continue;
 		}
 		const manifest = parsePackManifest(await context.files.read(entry.path));

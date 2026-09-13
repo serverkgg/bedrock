@@ -1,6 +1,7 @@
 import { type Bridge, BridgeKind, BridgeUserError } from "@serverkgg/bridge";
 import { execDetail } from "@serverkgg/bridge/utils";
 import { safePackFolder } from "../packs/packCompatibility";
+import { listPackManifests } from "../packs/packDiscovery";
 import { PackKind, parsePackManifest } from "../packs/packManifest";
 import { readWorldPacks } from "../packs/packRegistry";
 import { mergeProperties, PROPERTY_KEYS, publishFiles, requireStopped, worldPath } from "../shared";
@@ -103,20 +104,17 @@ export const exportWorld = async (context: Bridge.Context, source: string) => {
 	await context.files.ensure(staging, "exports");
 	try {
 		await copyDirectory(context, worldPath(source), world);
-		const manifests = await context.files.list("**/manifest.json");
 		for (const kind of [
 			PackKind.Behavior,
 			PackKind.Resource,
 		]) {
 			const directory = kind === PackKind.Behavior ? "behavior_packs" : "resource_packs";
+			const candidates = await listPackManifests(context, [
+				`${worldPath(source)}/${directory}`,
+				directory,
+			]);
 			for (const reference of await readWorldPacks(context, source, kind)) {
 				let found = false;
-				const candidates = manifests
-					.filter(
-						(entry) =>
-							entry.path.startsWith(`${worldPath(source)}/${directory}/`) || entry.path.startsWith(`${directory}/`),
-					)
-					.sort((a, b) => Number(b.path.startsWith("worlds/")) - Number(a.path.startsWith("worlds/")));
 				for (const entry of candidates) {
 					const folder = entry.path.slice(0, -"/manifest.json".length);
 					if (!safePackFolder(folder)) {
