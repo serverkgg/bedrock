@@ -128,19 +128,49 @@ export const assertRemovable = async (
 	}
 };
 
+const reachablePacks = (id: string, packs: Record<string, PackRecord>) => {
+	const seen = new Set<string>();
+	const pending = [
+		id,
+	];
+	while (pending.length > 0) {
+		const next = pending.pop();
+		if (next === undefined || seen.has(next)) {
+			continue;
+		}
+		seen.add(next);
+		pending.push(...(packs[next]?.dependencies ?? []));
+	}
+	return seen;
+};
+
+export const linkedPacks = (ids: string[], packs: Record<string, PackRecord>): string[] => {
+	const linked = new Set(ids);
+	for (const id of ids) {
+		for (const candidate of reachablePacks(id, packs)) {
+			if (packs[candidate] !== undefined && reachablePacks(candidate, packs).has(id)) {
+				linked.add(candidate);
+			}
+		}
+	}
+	return [
+		...linked,
+	];
+};
+
 export const activationOrder = (ids: string[], packs: Record<string, PackRecord>): PackRecord[] => {
 	const complete = new Set<string>();
 	const visiting = new Set<string>();
 	const ordered: PackRecord[] = [];
 	const visit = (id: string) => {
-		if (complete.has(id)) {
+		if (complete.has(id) || visiting.has(id)) {
 			return;
 		}
 		const pack = packs[id];
-		if (pack === undefined || visiting.has(id)) {
+		if (pack === undefined) {
 			throw new BridgeUserError({
-				ar: `الأدون يحتاج ملف مفقود أو متطلباته متداخلة: ${id}`,
-				en: `Missing add-on dependency or dependency cycle: ${id}`,
+				ar: `الأدون يحتاج ملف مفقود: ${id}`,
+				en: `Missing add-on dependency: ${id}`,
 			});
 		}
 		visiting.add(id);

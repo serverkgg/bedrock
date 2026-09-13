@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { activationOrder, compareVersion, packProblems, safePackFolder } from "./packCompatibility";
+import { activationOrder, compareVersion, linkedPacks, packProblems, safePackFolder } from "./packCompatibility";
 import { parsePackManifest, parsePackVersion } from "./packManifest";
 import { parsePackSidecar } from "./packSidecar";
 
@@ -112,7 +112,7 @@ describe("pack compatibility", () => {
 			]),
 		).toBeNull();
 	});
-	test("activates dependencies first and refuses dependency cycles", () => {
+	test("activates dependencies first, accepts two halves that require each other, and refuses a missing one", () => {
 		const packs = parsePackSidecar(
 			JSON.stringify({
 				packs: {
@@ -149,6 +149,20 @@ describe("pack compatibility", () => {
 		b.dependencies = [
 			"a",
 		];
+		expect(
+			activationOrder(
+				[
+					"a",
+				],
+				packs,
+			).map((pack) => pack.uuid),
+		).toEqual([
+			"b",
+			"a",
+		]);
+		b.dependencies = [
+			"missing",
+		];
 		expect(() =>
 			activationOrder(
 				[
@@ -156,7 +170,57 @@ describe("pack compatibility", () => {
 				],
 				packs,
 			),
-		).toThrow();
+		).toThrow("Missing add-on dependency: missing");
+	});
+	test("groups the halves of an add-on that require each other, and nothing that only depends one way", () => {
+		const packs = parsePackSidecar(
+			JSON.stringify({
+				packs: {
+					a: {
+						folder: "behavior_packs/a",
+						kind: "behavior",
+						dependencies: [
+							"b",
+						],
+					},
+					b: {
+						folder: "resource_packs/b",
+						kind: "resource",
+						dependencies: [
+							"a",
+						],
+					},
+					c: {
+						folder: "behavior_packs/c",
+						kind: "behavior",
+						dependencies: [
+							"a",
+						],
+					},
+				},
+			}),
+		).packs;
+		expect(
+			linkedPacks(
+				[
+					"a",
+				],
+				packs,
+			).sort(),
+		).toEqual([
+			"a",
+			"b",
+		]);
+		expect(
+			linkedPacks(
+				[
+					"c",
+				],
+				packs,
+			),
+		).toEqual([
+			"c",
+		]);
 	});
 	test("only permits pack folders in supported world or global roots", () => {
 		expect(safePackFolder("worlds/Survival/behavior_packs/addon")).toBe(true);

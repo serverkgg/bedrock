@@ -1,7 +1,14 @@
 import { type Bridge, BridgeUserError } from "@serverkgg/bridge";
 import { PACK_SIDECAR_FILE, PACK_STAGING, publishFiles, recoverFileTransaction, requireStopped } from "../shared";
 import { activeWorld } from "../worlds";
-import { activationOrder, assertCanDisable, assertCompatible, assertRemovable, manifestFor } from "./packCompatibility";
+import {
+	activationOrder,
+	assertCanDisable,
+	assertCompatible,
+	assertRemovable,
+	linkedPacks,
+	manifestFor,
+} from "./packCompatibility";
 import { inventoryPacks } from "./packDiscovery";
 import { PackKind } from "./packManifest";
 import {
@@ -58,7 +65,8 @@ export const setPacksEnabled = async (context: Bridge.Context, ids: string[], en
 	const sidecar = await inventoryPacks(context);
 	const world = await activeWorld(context);
 	const registries = await worldRegistries(context, world);
-	const ordered = enabled ? activationOrder(ids, sidecar.packs) : ids.flatMap((id) => sidecar.packs[id] ?? []);
+	const targets = enabled ? ids : linkedPacks(ids, sidecar.packs);
+	const ordered = enabled ? activationOrder(ids, sidecar.packs) : targets.flatMap((id) => sidecar.packs[id] ?? []);
 	if (enabled) {
 		const manifests = await Promise.all(ordered.map((pack) => manifestFor(context, pack)));
 		if (manifests.some((manifest) => manifest === null)) {
@@ -73,7 +81,7 @@ export const setPacksEnabled = async (context: Bridge.Context, ids: string[], en
 			sidecar.packs,
 		);
 	} else {
-		const otherPacks = Object.fromEntries(Object.entries(sidecar.packs).filter(([id]) => !ids.includes(id)));
+		const otherPacks = Object.fromEntries(Object.entries(sidecar.packs).filter(([id]) => !targets.includes(id)));
 		for (const pack of ordered) {
 			await assertCanDisable(context, pack, otherPacks);
 		}
@@ -106,7 +114,7 @@ export const removePacks = async (context: Bridge.Context, ids: string[]) => {
 	await recoverFileTransaction(context);
 	const sidecar = await inventoryPacks(context);
 	const world = await activeWorld(context);
-	const selected = ids.flatMap((id) => sidecar.packs[id] ?? []);
+	const selected = linkedPacks(ids, sidecar.packs).flatMap((id) => sidecar.packs[id] ?? []);
 	await assertRemovable(context, selected, sidecar.packs);
 	const registries = await worldRegistries(context, world);
 	for (const pack of selected) {
