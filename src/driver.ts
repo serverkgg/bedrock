@@ -8,7 +8,7 @@ import { events } from "./events";
 import { install } from "./install";
 import { lifecycle } from "./lifecycle";
 import { gameVersion, knownPlayerOptions } from "./options";
-import { packCatalog, packs } from "./packs";
+import { packCatalog, packHealth, packs } from "./packs";
 import { panel } from "./panel";
 import { query } from "./query";
 import { settings } from "./settings";
@@ -34,6 +34,7 @@ export const driver: Bridge.Driver = {
 		knownPlayerOptions,
 		operators,
 		packCatalog,
+		packHealth,
 		packs,
 		players,
 		settings,

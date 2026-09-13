@@ -31,3 +31,30 @@ Installing or enabling a pack checks required pack versions and its declared min
 A pack used by another world cannot be removed or switched to a different version until those references are removed. This prevents fixing one world from breaking another. Pack changes use a recovery backup and a stopped server. Failed staged installation restores the previous files.
 
 After restarting, check **Server status** for recent content errors and open the console for the full message. “Installed” means the files are present; it does not claim the game loaded the add-on.
+
+## Add-on check and repair
+
+The **Add-on check** on the Add-ons tab looks for four problems:
+
+- Add-on files uploaded through **Files** straight into `behavior_packs` or `resource_packs`. The game never opens an archive, so these never load.
+- Packs whose folders are on the server but were never activated on the world.
+- Required packs that are missing, such as a behavior pack whose resource pack was never installed.
+- Add-ons that need **Beta APIs**.
+
+**Repair add-ons** fixes the first two and the last one. We save a recovery backup and stop the game, activate the packs that were never activated, install every add-on file through the same installer an upload uses, turn on Beta APIs when an installed add-on needs it, and start the server again if it was running. A file we cannot install stays where it was, and the console says why. A zip that holds no add-on at all is listed as not an add-on and left alone.
+
+> [!note]
+> Upload add-ons from the Add-ons tab, not from Files. The tab installs and activates them in one step.
+
+## Beta APIs
+
+Some add-ons use Minecraft's beta scripting, and their scripts only load when the **Beta APIs** experiment is on for the world. The installed list marks them as “Needs Beta APIs”.
+
+**Repair add-ons** turns it on for the active world when an installed add-on needs it. Once it is on it cannot be turned off safely, so the recovery backup taken before the repair is your way back.
+
+If we cannot read the world's settings file, the check says so, and you can turn it on from your device instead:
+
+1. Open the world on your device.
+2. Go to **Settings → Experiments** and turn on **Beta APIs**.
+3. Export the world as a `.mcworld` file.
+4. Upload it from the **Worlds** tab and activate it.

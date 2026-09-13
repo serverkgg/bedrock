@@ -8,7 +8,7 @@ import {
 	recoverFileTransaction,
 	requireStopped,
 } from "../shared";
-import { activeWorld } from "../worlds";
+import { activeWorld, betaApisEnabled, readLevelExperiments } from "../worlds";
 import { discoverPacks, unpackArchive } from "./packArchive";
 import { activationOrder, assertCompatible, manifestFor, packWorlds, safePackFolder } from "./packCompatibility";
 import { inventoryPacks } from "./packDiscovery";
@@ -221,6 +221,19 @@ export const installPackSource = async (context: Bridge.Context, source: PackSou
 		bundle: source.bundle,
 		provider: source.provider ?? "upload",
 	});
+
+	const beta = found.filter((pack) => pack.manifest.betaModules.length > 0);
+	if (beta.length > 0 && betaApisEnabled(await readLevelExperiments(context, world)) !== true) {
+		context.log.warn(
+			"this add-on needs the Beta APIs experiment, which is not on for this world, so its scripts will not load until Repair add-ons turns it on",
+			{
+				world,
+				modules: [
+					...new Set(beta.flatMap((pack) => pack.manifest.betaModules)),
+				].join(", "),
+			},
+		);
+	}
 
 	return installed;
 };

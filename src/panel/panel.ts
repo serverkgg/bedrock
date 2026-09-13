@@ -1031,6 +1031,33 @@ const addonsTab: Bridge.Tab = {
 			module: "packCatalog",
 		},
 		{
+			layout: BridgeLayout.Detail,
+			id: "pack-health",
+			title: {
+				ar: "فحص الأدونات",
+				en: "Add-on check",
+			},
+			help: {
+				ar: "نشيّك على أدونات سيرفرك: ملفات رفعتها وما تركّبت، أدونات موجودة بس مو مفعّلة، متطلبات ناقصة، وأدونات تحتاج Beta APIs.",
+				en: "We check your server's add-ons: uploaded files that never installed, packs that are present but not active, missing required packs, and packs that need Beta APIs.",
+			},
+			module: "packHealth",
+			actions: [
+				{
+					id: "repair",
+					label: {
+						ar: "صلّح الأدونات",
+						en: "Repair add-ons",
+					},
+					confirm: BridgeConfirm.Normal,
+					confirmText: {
+						ar: "نحفظ نسخة استرجاع ونوقف السيرفر، نركّب ملفات الأدونات اللي ما تركّبت، نفعّل الأدونات اللي مو مفعّلة، ونفعّل Beta APIs إذا فيه أدون يحتاجها، وبعدين نرجّع السيرفر شغّال إذا كان شغّال. Beta APIs إذا تفعّلت ما تنقفل بأمان.",
+						en: "We save a recovery backup and stop the server, install the add-on files that never installed, activate the packs that are not active, and turn on Beta APIs if an add-on needs it, then start the server again if it was running. Once Beta APIs is on it cannot be turned off safely.",
+					},
+				},
+			],
+		},
+		{
 			layout: BridgeLayout.Table,
 			id: "packs",
 			title: {

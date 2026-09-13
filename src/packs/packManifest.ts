@@ -30,7 +30,10 @@ export interface PackManifest {
 	requirements: PackDependency[];
 	minEngineVersion: PackVersion | null;
 	scripted: boolean;
+	betaModules: string[];
 }
+
+const BETA_VERSION = /^beta$|-beta(?:[.+]|$)/i;
 
 const BEHAVIOR_MODULES = [
 	"data",
@@ -181,6 +184,8 @@ export const parsePackManifest = (text: string): PackManifest | null => {
 		return null;
 	}
 
+	const dependencies = Array.isArray(raw.dependencies) ? raw.dependencies : [];
+
 	return {
 		uuid,
 		nameKey: typeof raw.header?.name === "string" ? raw.header.name : "",
@@ -189,12 +194,19 @@ export const parsePackManifest = (text: string): PackManifest | null => {
 		kind,
 		minEngineVersion: parsePackVersion(raw.header?.min_engine_version),
 		scripted: moduleTypes.includes("script"),
-		requirements: (Array.isArray(raw.dependencies) ? raw.dependencies : []).map((entry) => ({
+		betaModules: dependencies.flatMap((entry) =>
+			typeof entry?.module_name === "string" && typeof entry.version === "string" && BETA_VERSION.test(entry.version)
+				? [
+						entry.module_name,
+					]
+				: [],
+		),
+		requirements: dependencies.map((entry) => ({
 			uuid: typeof entry?.uuid === "string" ? entry.uuid : null,
 			module: typeof entry?.module_name === "string" ? entry.module_name : null,
 			version: parsePackVersion(entry?.version),
 		})),
-		dependencies: (Array.isArray(raw.dependencies) ? raw.dependencies : [])
+		dependencies: dependencies
 			.map((entry) => entry?.uuid)
 			.filter((uuid): uuid is string => typeof uuid === "string" && uuid.length > 0),
 	};

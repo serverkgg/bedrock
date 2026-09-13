@@ -59,6 +59,11 @@ Booted in `debian:12-slim` on 2026-09-12 with the commands driven over stdin. Th
 - `allowlist list`, `ops` and `permissions` answer with **JSON wrapped in `###* … *###`**, not plain text.
   Nothing here parses those replies — both collections read the files — but anyone who adds a parser should
   know before they write a line-scraper.
+- **Beta APIs is `experiments.gametest` in `level.dat`**, checked on 2026-09-13 on a dev server. While the flag is
+  absent, a beta script add-on logs `requesting dependency on beta APIs … but the Beta APIs experiment is not
+  enabled` at `ERROR`. After `enableBetaApis` writes `gametest: 1`, the same script runs. On the next save the
+  game keeps the flag and sets `experiments_ever_used` and `saved_with_toggled_experiments` to 1 by itself. Every
+  other tag in the file was byte-identical before and after the write.
 
 ## Verified against the live CurseForge API
 
@@ -102,9 +107,13 @@ not in any `.env`), so none of this is inferred:
   array (`codecs/json.ts:14`), and `allowlist.json`, `permissions.json` and both `world_*_packs.json` are all
   top-level arrays. `src/shared/jsonList.ts` works around it here; a second package hitting the same wall is
   the moment to push it up.
-- **`ModCrashed` / `MissingDependency` events.** Pack load failures only surface in the content log, which
+- **`ModCrashed` / `MissingDependency` events.** Most pack load failures only surface in the content log, which
   `seedConfig` forces off because it is enormous. Turning it on behind a variable, learning the real lines
-  and adding the patterns is the follow-up.
+  and adding the patterns is the follow-up. Two lines do reach the console with the content log off, seen on
+  BDS 1.26.45.1 on 2026-09-13: `[Scripting] Plugin [<name> - <version>] - requesting dependency on beta APIs
+  [@minecraft/server - 2.10.0-beta], but the Beta APIs experiment is not enabled.` at `ERROR`, and
+  `The following issues were found when loading packs:` followed by `Unable to find manifest in pack.` for a
+  zip left in `resource_packs`. Server status already picks up both.
 
 ## Notes for whoever runs the first real install
 

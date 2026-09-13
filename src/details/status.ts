@@ -5,6 +5,11 @@ import { activeWorld, worldSize } from "../worlds";
 
 const REFRESH_SECONDS = 15;
 
+const CONTENT_ERROR =
+	/ERROR\]\s*\[(?:Scripting|ContentLog)\]|\[(?:Scripting|ContentLog)\].*(?:error|warning)|\b(?:Missing dependency|Failed to load pack|Unable to find manifest in pack|issues were found when loading packs)\b/i;
+
+export const isContentError = (line: string) => CONTENT_ERROR.test(line);
+
 interface BedrockHealth {
 	online: number | null;
 	max: number | null;
@@ -37,9 +42,7 @@ const sample = async (context: Bridge.Context): Promise<BedrockHealth> => {
 	const world = await activeWorld(context);
 	const stamp = await readInstallStamp(context);
 	const lines = await context.logs.tail(100);
-	const errors = lines.filter((line) =>
-		/\[(?:Scripting|ContentLog)\].*(?:error|warning)|\b(?:Missing dependency|Failed to load pack)\b/i.test(line),
-	);
+	const errors = lines.filter(isContentError);
 	return {
 		online: pong?.players.online ?? null,
 		max: pong?.players.max ?? null,

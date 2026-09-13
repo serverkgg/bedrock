@@ -122,6 +122,7 @@ files:
     - .serverk-recovery-files/**
     - .serverk-world-clone/**
     - .serverk-world-export/**
+    - .serverk-level/**
     - bedrock_server
     - "*.so"
     - libMinecraft.Server.Lib.a
@@ -195,8 +196,8 @@ files:
       color: "#c77dff"
       restart: true
       note:
-        ar: أدونات السلوك — اللي تغيّر الوحوش والأشياء وقوانين اللعبة. لازم تفعّلها على الماب وتعيد التشغيل.
-        en: Behavior packs — the ones that change mobs, items and game rules. They have to be activated on your world and need a restart.
+        ar: أدونات السلوك — اللي تغيّر الوحوش والأشياء وقوانين اللعبة. ارفع الأدونات من تبويب الأدونات؛ الملف اللي تحطه هنا ما يتركّب إلا لما تضغط «صلّح الأدونات».
+        en: Behavior packs — the ones that change mobs, items and game rules. Upload add-ons from the Add-ons tab; a file dropped here is not installed until you press Repair add-ons.
     - match: resource_packs
       label:
         ar: أدونات المظهر
@@ -205,8 +206,8 @@ files:
       color: "#c77dff"
       restart: true
       note:
-        ar: أدونات المظهر — الأشكال والأصوات. كل لاعب بينزّلها أول ما يدخل السيرفر.
-        en: Resource packs — textures and sounds. Every player downloads them when they join.
+        ar: أدونات المظهر — الأشكال والأصوات. كل لاعب بينزّلها أول ما يدخل السيرفر. ارفع الأدونات من تبويب الأدونات؛ الملف اللي تحطه هنا ما يتركّب إلا لما تضغط «صلّح الأدونات».
+        en: Resource packs — textures and sounds. Every player downloads them when they join. Upload add-ons from the Add-ons tab; a file dropped here is not installed until you press Repair add-ons.
     - match: valid_known_packs.json
       label:
         ar: فهرس الأدونات
