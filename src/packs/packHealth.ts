@@ -77,16 +77,28 @@ const archiveInstallable = async (context: Bridge.Context, path: string) => {
 	return listing.code === 0 && installableListing(listing.stdout);
 };
 
-export const packLoadState = (manifest: PackManifest | null, betaApis: boolean | null) => {
+export const packLoadState = (manifest: PackManifest | null, betaApis: boolean | null): Bridge.Text => {
 	if (manifest === null) {
-		return "Missing files / ملفات ناقصة";
+		return {
+			ar: "ملفات ناقصة",
+			en: "Missing files",
+		};
 	}
 	if (manifest.betaModules.length > 0 && betaApis !== true) {
 		return betaApis === false
-			? "Needs Beta APIs · off on this world / يحتاج Beta APIs · مقفلة على الماب"
-			: "Needs Beta APIs / يحتاج Beta APIs";
+			? {
+					ar: "يحتاج Beta APIs · مقفلة على الماب",
+					en: "Needs Beta APIs · off on this world",
+				}
+			: {
+					ar: "يحتاج Beta APIs",
+					en: "Needs Beta APIs",
+				};
 	}
-	return "Installed · load unverified / مركّب · التشغيل غير مؤكّد";
+	return {
+		ar: "مركّب · التشغيل غير مؤكّد",
+		en: "Installed · load unverified",
+	};
 };
 
 export const diagnosePacks = async (context: Bridge.Context): Promise<PackDiagnosis> => {

@@ -140,10 +140,14 @@ describe("marking add-ons that need beta apis", () => {
 			},
 		]);
 
-		expect(packLoadState(beta, false)).toContain("off on this world");
-		expect(packLoadState(beta, null)).toContain("Needs Beta APIs");
-		expect(packLoadState(beta, true)).toContain("Installed");
-		expect(packLoadState(null, true)).toContain("Missing files");
+		expect(packLoadState(beta, false).en).toContain("off on this world");
+		expect(packLoadState(beta, false).ar).toContain("مقفلة على الماب");
+		expect(packLoadState(beta, null).en).toContain("Needs Beta APIs");
+		expect(packLoadState(beta, null).ar).toContain("يحتاج Beta APIs");
+		expect(packLoadState(beta, true).en).toContain("Installed");
+		expect(packLoadState(beta, true).ar).toContain("مركّب");
+		expect(packLoadState(null, true).en).toContain("Missing files");
+		expect(packLoadState(null, true).ar).toContain("ملفات ناقصة");
 	});
 });
 

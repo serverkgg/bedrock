@@ -39,7 +39,16 @@ export const packs: Bridge.Collection = {
 				return {
 					id: pack.uuid,
 					name: pack.title,
-					kind: pack.kind === PackKind.Behavior ? "سلوك / Behavior" : "مظهر / Resource",
+					kind:
+						pack.kind === PackKind.Behavior
+							? {
+									ar: "سلوك",
+									en: "Behavior",
+								}
+							: {
+									ar: "مظهر",
+									en: "Resource",
+								},
 					version: pack.versionText,
 					enabled: listed.includes(pack.uuid) ? "✓" : "",
 					order: String(listed.indexOf(pack.uuid) + 1),
