@@ -3,7 +3,6 @@ import { broadcast, gameplay } from "./actions";
 import { announce } from "./announce";
 import { backup } from "./backup";
 import { allowlist, operators, players } from "./collections";
-import { status } from "./details";
 import { events } from "./events";
 import { install } from "./install";
 import { lifecycle } from "./lifecycle";
@@ -38,7 +37,6 @@ export const driver: Bridge.Driver = {
 		packs,
 		players,
 		settings,
-		status,
 		worlds,
 		worldTools,
 	},

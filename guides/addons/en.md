@@ -30,7 +30,7 @@ Installing or enabling a pack checks required pack versions and its declared min
 
 A pack used by another world cannot be removed or switched to a different version until those references are removed. This prevents fixing one world from breaking another. Pack changes need a stopped server, and only removing a pack takes a recovery backup first. Failed staged installation restores the previous files.
 
-After restarting, check **Server status** for recent content errors and open the console for the full message. “Installed” means the files are present; it does not claim the game loaded the add-on.
+After restarting, open the console and look for content errors. “Installed” means the files are present; it does not claim the game loaded the add-on.
 
 ## Add-on check and repair
 

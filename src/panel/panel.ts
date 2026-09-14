@@ -711,16 +711,6 @@ const liveTab: Bridge.Tab = {
 	icon: BridgeIcon.Gamepad,
 	sections: [
 		{
-			layout: BridgeLayout.Detail,
-			id: "status",
-			title: {
-				ar: "حالة السيرفر",
-				en: "Server status",
-			},
-			place: BridgePlace.Overview,
-			module: "status",
-		},
-		{
 			layout: BridgeLayout.Actions,
 			id: "world",
 			title: {
