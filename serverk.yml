@@ -3,7 +3,7 @@ schemaVersion: serverk.gg/v1
 kind: GamePackage
 
 metadata:
-  id: bedrock
+  id: minecraft-bedrock
   name:
     ar: بيدروك
     en: Minecraft Bedrock
@@ -25,7 +25,7 @@ resources:
   maxRecommendedPlayers: 100
 
 container:
-  image: serverkgg/bedrock
+  image: serverkgg/minecraft-bedrock
   runtime:
     platform: linux
     installBudgetMinutes: 10

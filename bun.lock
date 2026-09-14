@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@serverkgg/bedrock",
+      "name": "@serverkgg/minecraft-bedrock",
       "dependencies": {
         "@serverkgg/bridge": "0.0.17",
       },

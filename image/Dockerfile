@@ -4,8 +4,8 @@ ARG BRIDGE_VERSION
 
 LABEL gg.serverk.bridge.version="${BRIDGE_VERSION}"
 
-LABEL org.opencontainers.image.source="https://github.com/serverkgg/bedrock"
-LABEL gg.serverk.game="bedrock"
+LABEL org.opencontainers.image.source="https://github.com/serverkgg/minecraft-bedrock"
+LABEL gg.serverk.game="minecraft-bedrock"
 
 RUN set -eux; \
     apt-get update; \
